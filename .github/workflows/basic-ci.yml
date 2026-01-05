@@ -1,0 +1,72 @@
+name: Basic CI
+
+# Minimal CI workflow for basic sanity checks.
+# This workflow ensures the codebase is importable and has no critical syntax errors.
+# It does NOT run tests, start servers, or require external services.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  sanity-check:
+    name: Python Sanity Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        # Checkout step is required to access repository files.
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          # Use Python 3.10 as the minimum version per README.md requirements.
+          # This is the lowest reasonable version for this project.
+
+      - name: Install dependencies
+        working-directory: ./backend_api_python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # Install project dependencies to verify they are installable
+          # and to enable import checks in the next step.
+          # Using pip install (not pip install --user) for simplicity.
+
+      - name: Python syntax and import check
+        working-directory: ./backend_api_python
+        run: |
+          # Check Python syntax for all .py files (catches syntax errors early)
+          python -m py_compile run.py
+          python -m compileall -q app/ || (echo "Syntax check failed" && exit 1)
+          
+          # Verify critical modules can be imported (validates import resolution)
+          # We import but do NOT call create_app() to avoid triggering:
+          # - Database connections
+          # - Worker threads
+          # - Network services
+          python -c "
+          import sys
+          sys.path.insert(0, '.')
+          
+          # Import key modules to verify they are loadable
+          from app import create_app
+          from app.config import settings
+          from app.routes import health
+          
+          print('✓ Core modules imported successfully')
+          print('✓ No critical syntax or import errors detected')
+          "
+          # This step will FAIL if:
+          # - Python syntax errors exist (caught by py_compile/compileall)
+          # - Critical imports fail (missing dependencies, broken module structure)
+          # This step will PASS if:
+          # - Code is syntactically valid
+          # - Dependencies are available and importable
+          # - Core module structure is intact
+          # Note: We do NOT call create_app() to avoid runtime dependencies.
+          # Runtime errors that require DB/external services are not checked here.
+
