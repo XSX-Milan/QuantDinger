@@ -76,7 +76,11 @@ class AgentTools:
         proxy = (CCXTConfig.PROXY or '').strip()
         if proxy:
             cfg['proxies'] = {'http': proxy, 'https': proxy}
-        return ccxt.binance(cfg)
+        
+        exchange = ccxt.binance(cfg)
+        if CCXTConfig.BINANCE_TESTNET:
+            exchange.enable_demo_trading(True)
+        return exchange
 
     def _akshare_required(self) -> bool:
         """Whether akshare is available at runtime."""
@@ -137,7 +141,8 @@ class AgentTools:
             
             elif market == 'Crypto':
                 exchange = self._ccxt_exchange()
-                symbol_pair = f'{symbol}/USDT'
+                # Handle both formats: 'BTC' or 'BTC/USDT'
+                symbol_pair = symbol if '/' in symbol else f'{symbol}/USDT'
                 start_time = int((datetime.now() - timedelta(days=days)).timestamp())
                 # CCXT timeframes: 1d, 1h, 4h ...
                 ccxt_tf = tf if tf in ["1d", "1h", "4h"] else "1d"
@@ -233,7 +238,8 @@ class AgentTools:
                     }
             elif market == 'Crypto':
                 exchange = self._ccxt_exchange()
-                symbol_pair = f'{symbol}/USDT'
+                # Handle both formats: 'BTC' or 'BTC/USDT'
+                symbol_pair = symbol if '/' in symbol else f'{symbol}/USDT'
                 ticker = exchange.fetch_ticker(symbol_pair)
                 if ticker:
                     return {

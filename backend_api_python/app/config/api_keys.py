@@ -25,6 +25,12 @@ class MetaAPIKeys(type):
         val = load_addon_config().get('openrouter', {}).get('api_key')
         return val if val else os.getenv('OPENROUTER_API_KEY', '')
 
+    @property
+    def DEEPSEEK_API_KEY(cls):
+        from app.utils.config_loader import load_addon_config
+        val = load_addon_config().get('deepseek', {}).get('api_key')
+        return val if val else os.getenv('DEEPSEEK_API_KEY', '')
+
 
 class APIKeys(metaclass=MetaAPIKeys):
     """API 密钥配置类"""

@@ -1193,6 +1193,22 @@
                     />
                   </a-form-item>
 
+                  <a-form-item
+                    v-if="currentExchangeId && currentExchangeId.toLowerCase() === 'binance'"
+                    label="Binance Demo Trading"
+                    key="binance-demo-switch"
+                  >
+                    <a-switch
+                      v-decorator="['enable_demo_trading', { valuePropName: 'checked', initialValue: false }]"
+                    >
+                      <a-icon slot="checkedChildren" type="check" />
+                      <a-icon slot="unCheckedChildren" type="close" />
+                    </a-switch>
+                    <span style="margin-left: 8px; font-size: 12px; color: #999;">
+                      {{ $t('trading-assistant.form.enableDemoTradingHint') || 'Use Demo/Testnet URL' }}
+                    </span>
+                  </a-form-item>
+
                   <a-form-item>
                     <a-checkbox
                       v-decorator="['save_credential', { valuePropName: 'checked', initialValue: false }]"
@@ -2647,7 +2663,8 @@ export default {
         const fieldsToClear = {
           api_key: undefined,
           secret_key: undefined,
-          passphrase: undefined
+          passphrase: undefined,
+          enable_demo_trading: false // Reset demo switch too
         }
         setTimeout(() => {
           this.form.setFieldsValue(fieldsToClear)
@@ -2837,7 +2854,8 @@ export default {
               exchange_id: values.exchange_id,
               api_key: values.api_key,
               secret_key: values.secret_key,
-              market_type: String(marketType || 'swap')
+              market_type: String(marketType || 'swap'),
+              enableDemoTrading: !!this.form.getFieldValue('enable_demo_trading')
             }
 
             if (this.needsPassphrase && values.passphrase) {
@@ -3009,6 +3027,8 @@ export default {
             // 构建基础 payload
             const basePayload = {
               strategy_name: values.strategy_name,
+              save_exchange_credential: !!values.save_credential,
+              credential_name: values.credential_name,
               market_category: this.selectedMarketCategory || 'Crypto',
               execution_mode: values.execution_mode || 'signal',
               notification_config: notificationConfig,
@@ -3039,6 +3059,7 @@ export default {
                 credential_id: values.credential_id,
                 api_key: values.api_key,
                 secret_key: values.secret_key,
+                enableDemoTrading: !!values.enable_demo_trading,
                 passphrase: this.needsPassphrase ? values.passphrase : undefined
               }) : undefined,
               trading_config: {

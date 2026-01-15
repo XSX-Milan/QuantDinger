@@ -161,6 +161,14 @@ class MetaCCXTConfig(type):
 
         return ''
 
+    @property
+    def BINANCE_TESTNET(cls):
+        from app.utils.config_loader import load_addon_config
+        val = load_addon_config().get('ccxt', {}).get('binance_testnet')
+        if val is not None:
+            return str(val).lower() == 'true'
+        return os.getenv('CCXT_BINANCE_TESTNET', 'false').lower() == 'true'
+
 
 class CCXTConfig(metaclass=MetaCCXTConfig):
     """CCXT 加密货币数据源配置"""

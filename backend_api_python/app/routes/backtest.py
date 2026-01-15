@@ -264,46 +264,55 @@ def run_backtest():
                 'message': '使用标准K线回测'
             }
 
-        # Persist backtest run for AI optimization / history
-        run_id = None
-        try:
-            now_ts = int(time.time())
-            with get_db_connection() as db:
-                cur = db.cursor()
-                cur.execute(
-                    """
-                    INSERT INTO qd_backtest_runs
-                    (user_id, indicator_id, market, symbol, timeframe, start_date, end_date,
-                     initial_capital, commission, slippage, leverage, trade_direction,
-                     strategy_config, status, error_message, result_json, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        user_id,
-                        int(indicator_id) if indicator_id is not None else None,
-                        market,
-                        symbol,
-                        timeframe,
-                        start_date_str,
-                        end_date_str,
-                        initial_capital,
-                        commission,
-                        slippage,
-                        leverage,
-                        trade_direction,
-                        json.dumps(strategy_config or {}, ensure_ascii=False),
-                        'success',
-                        '',
-                        json.dumps(result or {}, ensure_ascii=False),
-                        now_ts
+        # Helper to persist run safely
+        def _persist_run_safe(status: str, error_msg: str = "", result_json: dict = None):
+            try:
+                # Prepare common fields
+                p_indicator_id = int(indicator_id) if indicator_id is not None else None
+                p_market = str(data.get('market', '') or '')
+                p_symbol = str(data.get('symbol', '') or '')
+                p_timeframe = str(data.get('timeframe', '') or '')
+                p_start_date = str(data.get('startDate', start_date_str) or '')
+                p_end_date = str(data.get('endDate', end_date_str) or '')
+                p_initial_capital = float(data.get('initialCapital', 0) or 0)
+                p_commission = float(data.get('commission', 0) or 0)
+                p_slippage = float(data.get('slippage', 0) or 0)
+                p_leverage = int(data.get('leverage', 1) or 1)
+                p_trade_direction = str(data.get('tradeDirection', 'long') or 'long')
+                p_strategy_config = json.dumps(data.get('strategyConfig') or {}, ensure_ascii=False)
+                
+                # Result
+                p_result_json = json.dumps(result_json or {}, ensure_ascii=False)
+                
+                now_ts = int(time.time())
+                
+                with get_db_connection() as db:
+                    cur = db.cursor()
+                    cur.execute(
+                        """
+                        INSERT INTO qd_backtest_runs
+                        (user_id, indicator_id, market, symbol, timeframe, start_date, end_date,
+                         initial_capital, commission, slippage, leverage, trade_direction,
+                         strategy_config, status, error_message, result_json, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            user_id, p_indicator_id, p_market, p_symbol, p_timeframe, 
+                            p_start_date, p_end_date, p_initial_capital, p_commission, 
+                            p_slippage, p_leverage, p_trade_direction, p_strategy_config,
+                            status, error_msg, p_result_json, now_ts
+                        )
                     )
-                )
-                run_id = cur.lastrowid
-                db.commit()
-                cur.close()
-        except Exception:
-            # Do not break the main backtest response if persistence fails.
-            logger.warning("Failed to persist backtest run", exc_info=True)
+                    inserted_id = cur.lastrowid
+                    db.commit()
+                    cur.close()
+                    return inserted_id
+            except Exception:
+                logger.warning("Failed to persist backtest run", exc_info=True)
+                return None
+
+        # Persist success
+        run_id = _persist_run_safe('success', '', result)
         
         return jsonify({
             'code': 1,
@@ -316,54 +325,29 @@ def run_backtest():
         
     except ValueError as e:
         logger.warning(f"Invalid backtest parameters: {str(e)}")
+        # Persist failure (ValueError)
+        try:
+            # Re-read basics if execution failed early
+            _persist_run_safe('failed', str(e), {})
+        except Exception: 
+            pass # _persist_run_safe already handles exceptions but safe guard
+            
         return jsonify({
             'code': 0,
             'msg': str(e),
             'data': None
         }), 400
+        
     except Exception as e:
         logger.error(f"Backtest failed: {str(e)}")
         logger.error(traceback.format_exc())
-        # Best-effort persist failed run (if we have enough context)
+        
+        # Persist failure (General Exception)
         try:
-            data = data if isinstance(data, dict) else {}
-            user_id = int(data.get('userid') or data.get('userId') or 1)
-            indicator_id = data.get('indicatorId')
-            now_ts = int(time.time())
-            with get_db_connection() as db:
-                cur = db.cursor()
-                cur.execute(
-                    """
-                    INSERT INTO qd_backtest_runs
-                    (user_id, indicator_id, market, symbol, timeframe, start_date, end_date,
-                     initial_capital, commission, slippage, leverage, trade_direction,
-                     strategy_config, status, error_message, result_json, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        user_id,
-                        int(indicator_id) if indicator_id is not None else None,
-                        str(data.get('market', '') or ''),
-                        str(data.get('symbol', '') or ''),
-                        str(data.get('timeframe', '') or ''),
-                        str(data.get('startDate', '') or ''),
-                        str(data.get('endDate', '') or ''),
-                        float(data.get('initialCapital', 0) or 0),
-                        float(data.get('commission', 0) or 0),
-                        float(data.get('slippage', 0) or 0),
-                        int(data.get('leverage', 1) or 1),
-                        str(data.get('tradeDirection', 'long') or 'long'),
-                        json.dumps(data.get('strategyConfig') or {}, ensure_ascii=False),
-                        'failed',
-                        str(e),
-                        '',
-                        now_ts
-                    )
-                )
-                db.commit()
-                cur.close()
+            _persist_run_safe('failed', str(e), {})
         except Exception:
             pass
+
         return jsonify({
             'code': 0,
             'msg': f'Backtest failed: {str(e)}',

@@ -78,10 +78,15 @@ class CryptoDataSource(BaseDataSource):
         try:
             ccxt_timeframe = self.TIMEFRAME_MAP.get(timeframe, '1d')
             
-            # 构建交易对符号
-            if not symbol.endswith('USDT') and not symbol.endswith('USD'):
+            # 构建交易对符号 - Handle both 'BTC' and 'BTC/USDT' formats
+            if '/' in symbol:
+                # Already a pair, use as-is
+                symbol_pair = symbol
+            elif not symbol.endswith('USDT') and not symbol.endswith('USD'):
+                # Single currency, append /USDT
                 symbol_pair = f'{symbol}/USDT'
             else:
+                # Ends with USDT/USD but no /, try parsing
                 symbol_pair = symbol
             
             # logger.info(f"获取加密货币K线: {symbol_pair}, 周期: {ccxt_timeframe}, 条数: {limit}")

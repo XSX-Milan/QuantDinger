@@ -1151,6 +1151,16 @@ import pandas as pd
 """
             exec(pre_import_code, exec_env)
             
+            # --- Sanitize / Fix legacy code ---
+            # Fix "unterminated string literal" for multi-line description using double quotes
+            try:
+                import re
+                pattern = r'(my_indicator_description\s*=\s*)"(?!")((?:[^"\\]|\\.)*?)"(?!")'
+                code = re.sub(pattern, r'\1"""\2"""', code, flags=re.DOTALL)
+            except Exception as e:
+                logger.warning(f"Failed to sanitize indicator code: {e}")
+            # ----------------------------------
+
             # Security check: validate code doesn't contain dangerous operations
             from app.utils.safe_exec import validate_code_safety
             is_safe, error_msg = validate_code_safety(code)
@@ -1212,6 +1222,7 @@ import pandas as pd
         except Exception as e:
             logger.error(f"Indicator code execution error: {e}")
             logger.error(traceback.format_exc())
+            raise e
         
         return signals
     

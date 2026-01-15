@@ -452,7 +452,7 @@ IMPORTANT: Output Python code directly, without explanations, without descriptio
         # Fallback template that follows the project expectations.
         header = (
             f"my_indicator_name = \"Custom Indicator\"\n"
-            f"my_indicator_description = \"{prompt.replace('\\n', ' ')[:200]}\"\n\n"
+            f"my_indicator_description = \"\"\"{prompt.replace('\\"', '\\\\"')}\"\"\"\n\n"
         )
         body = (
             "df = df.copy()\n\n"

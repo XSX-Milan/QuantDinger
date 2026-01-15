@@ -196,9 +196,8 @@ You are an expert Python quantitative trading developer.
         return base, key
 
     def _template_code() -> str:
-        return (
             f'my_indicator_name = "Custom Strategy"\n'
-            f'my_indicator_description = "{prompt.replace("\\n", " ")[:200]}"\n\n'
+            f'my_indicator_description = """{prompt.replace("\\"", "\\\\")}"""\n\n'
             "# Buy/Sell only. Execution is normalized in backend.\n"
             "df = df.copy()\n"
             "sma = df['close'].rolling(14).mean()\n"

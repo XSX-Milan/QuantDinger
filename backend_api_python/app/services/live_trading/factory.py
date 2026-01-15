@@ -58,12 +58,30 @@ def create_client(exchange_config: Dict[str, Any], *, market_type: str = "swap")
         mt = "swap"
 
     if exchange_id == "binance":
+        import logging
+        logging.warning(f"FACTORY DEBUG: config keys={list(exchange_config.keys())}")
+        logging.warning(f"FACTORY DEBUG: enableDemoTrading={exchange_config.get('enableDemoTrading')}")
+        logging.warning(f"FACTORY DEBUG: enable_demo_trading={exchange_config.get('enable_demo_trading')}")
+
+        # CCXT compatible property: enableDemoTrading
+        is_demo = bool(exchange_config.get("enableDemoTrading") or exchange_config.get("enable_demo_trading") or False)
+
         if mt == "spot":
-            base_url = _get(exchange_config, "base_url", "baseUrl") or "https://api.binance.com"
-            return BinanceSpotClient(api_key=api_key, secret_key=secret_key, base_url=base_url)
+            # Priorities: Configured BaseURL > Demo (if enabled) > Live
+            default_url = "https://api.binance.com"
+            if is_demo:
+                default_url = "https://demo-api.binance.com"
+
+            base_url = _get(exchange_config, "base_url", "baseUrl") or default_url
+            return BinanceSpotClient(api_key=api_key, secret_key=secret_key, base_url=base_url, enable_demo_trading=is_demo)
+        
         # Default to USDT-M futures
-        base_url = _get(exchange_config, "base_url", "baseUrl") or "https://fapi.binance.com"
-        return BinanceFuturesClient(api_key=api_key, secret_key=secret_key, base_url=base_url)
+        default_url = "https://fapi.binance.com"
+        if is_demo:
+            default_url = "https://demo-fapi.binance.com"
+
+        base_url = _get(exchange_config, "base_url", "baseUrl") or default_url
+        return BinanceFuturesClient(api_key=api_key, secret_key=secret_key, base_url=base_url, enable_demo_trading=is_demo)
     if exchange_id == "okx":
         base_url = _get(exchange_config, "base_url", "baseUrl") or "https://www.okx.com"
         return OkxClient(api_key=api_key, secret_key=secret_key, passphrase=passphrase, base_url=base_url)

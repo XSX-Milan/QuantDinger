@@ -1,7 +1,8 @@
-// Unified AI model support list for frontend.
-// Model IDs follow OpenRouter-style `provider/model` naming.
-
+/* eslint-disable space-before-function-paren */
 export const DEFAULT_AI_MODEL_MAP = {
+  'deepseek-chat': 'DeepSeek V3 (Chat)',
+  'deepseek-reasoner': 'DeepSeek R1 (Reasoner)',
+  'deepseek-v3.2-speciale': 'DeepSeek V3.2 Speciale',
   'x-ai/grok-code-fast-1': 'xAI: Grok Code Fast 1',
   'x-ai/grok-4-fast': 'xAI: Grok 4 Fast',
   'x-ai/grok-4.1-fast': 'xAI: Grok 4.1 Fast',
@@ -22,17 +23,17 @@ export const DEFAULT_AI_MODEL_MAP = {
   'z-ai/glm-4.6': 'Z.AI: GLM 4.6'
 }
 
-export function isPlainObject (val) {
+export function isPlainObject(val) {
   return val !== null && typeof val === 'object' && !Array.isArray(val)
 }
 
-export function mergeModelMaps (baseMap, overrideMap) {
+export function mergeModelMaps(baseMap, overrideMap) {
   const base = isPlainObject(baseMap) ? baseMap : {}
   const override = isPlainObject(overrideMap) ? overrideMap : {}
   return { ...base, ...override }
 }
 
-export function modelMapToOptions (modelMap) {
+export function modelMapToOptions(modelMap) {
   const map = isPlainObject(modelMap) ? modelMap : {}
   return Object.keys(map).map(key => ({
     value: key,

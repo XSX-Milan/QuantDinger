@@ -584,7 +584,62 @@ class StrategyService:
             new_id = cur.lastrowid
             db.commit()
             cur.close()
+
+        # Save credential if requested
+        if payload.get('save_exchange_credential') and exchange_config:
+             try:
+                 cred_name = (payload.get('credential_name') or f"{name} Credential").strip()
+                 ex_id = exchange_config.get('exchange_id')
+                 ak = exchange_config.get('api_key')
+                 sk = exchange_config.get('secret_key')
+                 phrase = exchange_config.get('passphrase') or ''
+                 
+                 if ex_id and ak and sk:
+                     self._save_credential_internal(
+                         user_id=1, # Local default
+                         name=cred_name,
+                         exchange_id=ex_id,
+                         api_key=ak,
+                         secret_key=sk,
+                         passphrase=phrase
+                     )
+             except Exception as e:
+                 logger.error(f"Failed to auto-save credential for strategy {new_id}: {e}")
+
         return int(new_id)
+
+    def _save_credential_internal(self, user_id, name, exchange_id, api_key, secret_key, passphrase):
+        """Helper to save credential internally."""
+        try:
+            # Simple hint logic
+            hint = str(api_key)
+            if len(hint) > 8:
+                hint = hint[:2] + '***'
+            elif len(hint) > 4:
+                hint = hint[:4] + '...'
+            
+            plaintext = json.dumps({
+                'exchange_id': exchange_id,
+                'api_key': api_key,
+                'secret_key': secret_key,
+                'passphrase': passphrase
+            }, ensure_ascii=False)
+            
+            now = int(time.time())
+            with get_db_connection() as db:
+                cur = db.cursor()
+                cur.execute(
+                    """
+                    INSERT INTO qd_exchange_credentials (user_id, name, exchange_id, api_key_hint, encrypted_config, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (user_id, name, exchange_id, hint, plaintext, now, now)
+                )
+                db.commit()
+                cur.close()
+        except Exception as e:
+            logger.error(f"_save_credential_internal failed: {e}")
+            raise
 
     def batch_create_strategies(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """

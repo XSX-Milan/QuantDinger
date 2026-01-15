@@ -23,45 +23,128 @@ class LLMService:
 
     @property
     def api_key(self):
+        return APIKeys.DEEPSEEK_API_KEY
+        
+    @property
+    def openrouter_api_key(self):
         return APIKeys.OPENROUTER_API_KEY
 
     @property
     def base_url(self):
         config = load_addon_config()
-        # Keep compatible with old/new config keys.
+        import os
+        return config.get('deepseek', {}).get('base_url') or os.getenv('DEEPSEEK_BASE_URL', "https://api.deepseek.com")
+        
+    @property
+    def openrouter_base_url(self):
+        config = load_addon_config()
         import os
         return config.get('openrouter', {}).get('base_url') or os.getenv('OPENROUTER_BASE_URL', "https://openrouter.ai/api/v1")
 
-    def call_openrouter_api(self, messages: list, model: str = None, temperature: float = 0.7, use_fallback: bool = True) -> str:
-        """Call OpenRouter API, with optional fallback models."""
+    def call_llm_api(self, messages: list, model: str = None, temperature: float = 0.7, use_fallback: bool = True) -> str:
+        """Dispatch to appropriate API provider."""
         config = load_addon_config()
-        openrouter_config = config.get('openrouter', {})
+        import os
         
-        default_model = openrouter_config.get('model', 'openai/gpt-4o')
+        default_deepseek = os.getenv('DEEPSEEK_MODEL', 'deepseek-chat')
+        default_openrouter = config.get('openrouter', {}).get('model', 'openai/gpt-4o')
         
-        if model is None:
-            model = default_model
+        target_model = model
+        if target_model is None:
+            # Decide default provider based on what keys are available or env var
+            if APIKeys.DEEPSEEK_API_KEY:
+                target_model = default_deepseek
+            else:
+                target_model = default_openrouter
+                
+        # Heuristic: OpenRouter models usually have "provider/model" format (contains slash)
+        # DeepSeek direct models are like "deepseek-chat" or "DeepSeek-..." (no slash usually, or we assume so for our specific ones)
+        # Exception: "deepseek/deepseek-v3" is OpenRouter.
+        
+        is_openrouter = "/" in target_model
+        
+        # Override heuristic if specifically asking for our direct DeepSeek Speciale
+        if target_model in ["DeepSeek-V3.2-Speciale", "deepseek-chat", "deepseek-reasoner"]:
+            is_openrouter = False
             
+        if is_openrouter:
+            return self.call_openrouter_api(messages, target_model, temperature, use_fallback)
+        else:
+            return self.call_deepseek_api(messages, target_model, temperature, use_fallback)
+
+    def call_deepseek_api(self, messages: list, model: str = None, temperature: float = 0.7, use_fallback: bool = True) -> str:
+        """Call DeepSeek API."""
         url = f"{self.base_url}/chat/completions"
-        
         headers = {
             "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        if not model:
+            import os
+            model = os.getenv('DEEPSEEK_MODEL', 'deepseek-chat')
+
+        models_to_try = [model]
+        fallback_models = ["deepseek-chat"]
+        if use_fallback and model != "deepseek-chat":
+            models_to_try.extend(fallback_models)
+
+        last_error = None
+        import os
+        timeout = int(os.getenv('DEEPSEEK_TIMEOUT', 300))
+        
+        for current_model in models_to_try:
+            try:
+                data = {
+                    "model": current_model,
+                    "messages": messages,
+                    "temperature": temperature,
+                    "response_format": {"type": "json_object"},
+                    "stream": False
+                }
+
+                response = requests.post(url, headers=headers, json=data, timeout=timeout)
+                
+                if response.status_code == 402:
+                    logger.warning(f"DeepSeek returned 402 for model {current_model} (Payment Required)")
+                    last_error = f"402 Payment Required"
+                    continue
+                
+                response.raise_for_status()
+                
+                result = response.json()
+                if "choices" in result and len(result["choices"]) > 0:
+                    return result["choices"][0]["message"]["content"]
+                else:
+                    logger.error(f"DeepSeek API returned unexpected structure: {json.dumps(result)}")
+                    raise ValueError("DeepSeek API response is missing 'choices'")
+                    
+            except Exception as e:
+                logger.error(f"DeepSeek API error ({current_model}): {str(e)}")
+                last_error = str(e)
+                if current_model == models_to_try[-1]:
+                    raise
+        
+        raise Exception(f"All DeepSeek model calls failed. Last error: {last_error}")
+
+    def call_openrouter_api(self, messages: list, model: str = None, temperature: float = 0.7, use_fallback: bool = True) -> str:
+        """Call OpenRouter API."""
+        config = load_addon_config()
+        openrouter_config = config.get('openrouter', {})
+        url = f"{self.openrouter_base_url}/chat/completions"
+        
+        headers = {
+            "Authorization": f"Bearer {self.openrouter_api_key}",
             "Content-Type": "application/json",
             "HTTP-Referer": "https://quantdinger.com", 
             "X-Title": "QuantDinger Analysis" 
         }
 
-        # Build model candidates (primary + optional fallbacks).
-        models_to_try = [model]
-        
-        # Fallback models are currently hard-coded for local mode.
-        fallback_models = ["openai/gpt-4o-mini"]
-        
-        if use_fallback and model == default_model:
-            models_to_try.extend(fallback_models)
+        models_to_try = [model] if model else [openrouter_config.get('model', 'openai/gpt-4o')]
+        if use_fallback:
+            models_to_try.append("openai/gpt-4o-mini")
 
         last_error = None
-        
         timeout = int(openrouter_config.get('timeout', 120))
         
         for current_model in models_to_try:
@@ -72,56 +155,35 @@ class LLMService:
                     "temperature": temperature,
                     "response_format": {"type": "json_object"}
                 }
-                # logger.debug(f"Trying model: {current_model}")
 
                 response = requests.post(url, headers=headers, json=data, timeout=timeout)
                 
                 if response.status_code == 402:
-                    logger.warning(f"OpenRouter returned 402 for model {current_model}; trying fallback model...")
-                    last_error = f"402 Payment Required for model {current_model}"
+                    logger.warning(f"OpenRouter returned 402 for model {current_model}")
+                    last_error = f"402 Payment Required"
                     continue
                 
                 response.raise_for_status()
-                
                 result = response.json()
+                
                 if "choices" in result and len(result["choices"]) > 0:
-                    content = result["choices"][0]["message"]["content"]
-                    if not content:
-                        raise ValueError(f"Model {current_model} returned empty content")
-                        
-                    if current_model != model:
-                        logger.info(f"Fallback model succeeded: {current_model}")
-                    return content
+                    return result["choices"][0]["message"]["content"]
                 else:
-                    logger.error(f"OpenRouter API returned unexpected structure ({current_model}): {json.dumps(result)}")
                     raise ValueError("OpenRouter API response is missing 'choices'")
                     
-            except requests.exceptions.HTTPError as e:
-                logger.error(f"OpenRouter API HTTP error ({current_model}): {e.response.text if e.response else str(e)}")
+            except Exception as e:
+                logger.error(f"OpenRouter API error ({current_model}): {str(e)}")
                 last_error = str(e)
-                if not use_fallback or current_model == models_to_try[-1]:
-                    raise
-            except requests.exceptions.RequestException as e:
-                logger.error(f"OpenRouter API request error ({current_model}): {str(e)}")
-                last_error = str(e)
-                if not use_fallback or current_model == models_to_try[-1]:
-                    raise
-            except ValueError as e:
-                logger.warning(f"Model {current_model} returned invalid data: {str(e)}")
-                last_error = str(e)
-                # If this is not the last candidate model, try the next one
                 if current_model == models_to_try[-1]:
                     raise
-        
-        error_msg = f"All model calls failed. Last error: {last_error}"
-        logger.error(error_msg)
-        raise Exception(error_msg)
+
+        raise Exception(f"All OpenRouter model calls failed. Last error: {last_error}")
 
     def safe_call_llm(self, system_prompt: str, user_prompt: str, default_structure: Dict[str, Any], model: str = None) -> Dict[str, Any]:
         """Safe LLM call with robust JSON parsing and fallback structure."""
         response_text = ""
         try:
-            response_text = self.call_openrouter_api([
+            response_text = self.call_llm_api([
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ], model=model)

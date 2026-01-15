@@ -63,6 +63,10 @@ class FuturesDataSource(BaseDataSource):
             }
         
         self.exchange = ccxt.binance(config)
+        
+        # Check for Binance Demo Trading (Testnet)
+        if CCXTConfig.BINANCE_TESTNET:
+            self.exchange.enable_demo_trading(True)
 
     def get_ticker(self, symbol: str) -> Dict[str, Any]:
         """

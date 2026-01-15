@@ -960,7 +960,9 @@ class TradingExecutor:
                                 execution_mode=execution_mode,
                                 notification_config=notification_config,
                                 trading_config=trading_config,
+
                                 ai_model_config=ai_model_config,
+                                enable_demo_trading=bool(exchange_config.get("enableDemoTrading") or exchange_config.get("enable_demo_trading")),
                             )
                             if ok:
                                 logger.info(f"Strategy {strategy_id} signal executed: {signal_type} @ {execute_price}")
@@ -1794,6 +1796,21 @@ class TradingExecutor:
             pre_import_code = "import numpy as np\nimport pandas as pd\n"
             exec(pre_import_code, exec_env)
             
+            # --- Sanitize / Fix legacy code ---
+            # Fix "unterminated string literal" for multi-line description using double quotes
+            # Pattern: my_indicator_description = "..." (where ... has newlines)
+            # We replace surrounding " with """
+            try:
+                import re
+                # Match: my_indicator_description = " (capture content) " (not followed by ")
+                # We use DOTALL to match newlines in content
+                pattern = r'(my_indicator_description\s*=\s*)"(?!")((?:[^"\\]|\\.)*?)"(?!")'
+                # Replace with: \1"""\2"""
+                indicator_code = re.sub(pattern, r'\1"""\2"""', indicator_code, flags=re.DOTALL)
+            except Exception as e:
+                logger.warning(f"Failed to sanitize indicator code: {e}")
+            # ----------------------------------
+
             # 这里的 safe_exec_code 假设已存在
             exec(indicator_code, exec_env)
             
@@ -1873,6 +1890,7 @@ class TradingExecutor:
         trading_config: Optional[Dict[str, Any]] = None,
         ai_model_config: Optional[Dict[str, Any]] = None,
         signal_ts: int = 0,
+        enable_demo_trading: bool = False,
     ):
         """执行具体的交易信号"""
         try:
@@ -1994,7 +2012,9 @@ class TradingExecutor:
                 leverage=leverage,
                 execution_mode=execution_mode,
                 notification_config=notification_config,
+
                 signal_ts=int(signal_ts or 0),
+                enable_demo_trading=enable_demo_trading,
             )
             
             if order_result and order_result.get('success'):
@@ -2243,6 +2263,7 @@ class TradingExecutor:
         execution_mode: str = 'signal',
         notification_config: Optional[Dict[str, Any]] = None,
         signal_ts: int = 0,
+        enable_demo_trading: bool = False,
     ) -> Optional[Dict[str, Any]]:
         """
         Convert a signal into a concrete pending order and enqueue it into DB.
@@ -2270,6 +2291,7 @@ class TradingExecutor:
                 "maker_retries": int(maker_retries or 0),
                 "close_fallback_to_market": bool(close_fallback_to_market),
                 "open_fallback_to_market": bool(open_fallback_to_market),
+                "enable_demo_trading": bool(enable_demo_trading),
             }
             pending_id = self._enqueue_pending_order(
                 strategy_id=strategy_id,
