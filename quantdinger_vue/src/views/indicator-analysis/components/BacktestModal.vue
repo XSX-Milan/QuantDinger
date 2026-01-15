@@ -601,15 +601,41 @@
             :disabled="loading"
             @click="handleNext"
           >{{ $t('dashboard.indicator.backtest.next') }}</a-button>
+
+          <!-- Import/Export Buttons -->
           <a-button
-            v-else-if="currentStep === 1"
+            v-if="currentStep === 0"
+            icon="upload"
+            style="margin-left: 8px;"
+            @click="handleImportParams"
+          >
+            {{ $t('dashboard.indicator.backtest.importConfig') || 'Import Config' }}
+          </a-button>
+          <a-button
+            v-if="currentStep === 0"
+            icon="download"
+            style="margin-left: 8px;"
+            @click="handleExportParams"
+          >
+            {{ $t('dashboard.indicator.backtest.exportConfig') || 'Export Config' }}
+          </a-button>
+          <input
+            type="file"
+            ref="fileInput"
+            accept=".json"
+            style="display: none"
+            @change="onFileSelected"
+          />
+
+          <a-button
+            v-if="currentStep === 1"
             type="primary"
             style="margin-left: 8px;"
             :loading="loading"
             @click="handleRunBacktest"
           >{{ $t('dashboard.indicator.backtest.run') }}</a-button>
           <a-button
-            v-else
+            v-if="currentStep > 1"
             type="primary"
             style="margin-left: 8px;"
             :disabled="loading"
@@ -1149,11 +1175,135 @@ export default {
       }, 2000)
     },
     stopLoadingAnimation () {
+      this.loading = false
       if (this.loadingTimer) {
         clearInterval(this.loadingTimer)
         this.loadingTimer = null
       }
-      this.loadingTip = ''
+    },
+    // --- Inline Helper Methods ---
+    ensureIOUtils (callback) {
+      if (window.BacktestUtils) {
+        callback()
+        return
+      }
+      const script = document.createElement('script')
+      script.src = '/js/backtest-utils.js'
+      script.onload = () => {
+        setTimeout(callback, 50)
+      }
+      script.onerror = () => {
+        this.$message.error('Failed to load IO utility')
+      }
+      document.body.appendChild(script)
+    },
+    doExportConfig (data) {
+       const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+       const filename = `backtest_config_${dateStr}.json`
+
+       this.ensureIOUtils(() => {
+         if (window.BacktestUtils && window.BacktestUtils.exportConfig) {
+           const success = window.BacktestUtils.exportConfig(data, filename)
+           if (!success) {
+             this.$message.error(this.$t('dashboard.indicator.backtest.exportFailed') || 'Export failed')
+           }
+         } else {
+           this.$message.error('IO Utils not initialized')
+         }
+       })
+    },
+    doImportConfig (file, successCallback) {
+      this.ensureIOUtils(() => {
+        if (window.BacktestUtils && window.BacktestUtils.readConfig) {
+          window.BacktestUtils.readConfig(file, (err, data) => {
+            if (err) {
+              console.error(err)
+              this.$message.error(this.$t('dashboard.indicator.backtest.importFailed') || 'Import failed')
+            } else {
+              successCallback(data)
+            }
+          })
+        }
+      })
+    },
+    // --- End Inline Helper Methods ---
+
+    handleExportParams () {
+      try {
+        const formValues = this.form.getFieldsValue()
+
+        // Prepare data
+        const exportData = {
+          ...formValues,
+          _uiState: {
+            trailingEnabledUi: this.trailingEnabledUi,
+            step1CollapseKeys: this.step1CollapseKeys,
+            entryPctMaxUi: this.entryPctMaxUi,
+            selectedDatePreset: this.selectedDatePreset,
+            selectedTimeframe: this.selectedTimeframe,
+            precisionInfo: this.precisionInfo
+          }
+        }
+
+        // Convert Dates
+        if (exportData.startDate && exportData.startDate.toISOString) {
+          exportData.startDate = exportData.startDate.toISOString()
+        }
+        if (exportData.endDate && exportData.endDate.toISOString) {
+          exportData.endDate = exportData.endDate.toISOString()
+        }
+
+        this.doExportConfig(exportData)
+      } catch (e) {
+        console.error(e)
+        this.$message.error(this.$t('dashboard.indicator.backtest.exportFailed') || 'Export failed')
+      }
+    },
+    handleImportParams () {
+      if (this.$refs.fileInput) {
+        this.$refs.fileInput.value = ''
+        this.$refs.fileInput.click()
+      }
+    },
+    onFileSelected (e) {
+      const file = e.target.files[0]
+      if (!file) return
+
+      this.doImportConfig(file, (data) => {
+         try {
+            // Restore UI state
+            const uiState = data._uiState || {}
+            delete data._uiState
+
+            if (uiState.trailingEnabledUi !== undefined) this.trailingEnabledUi = uiState.trailingEnabledUi
+            if (uiState.step1CollapseKeys) this.step1CollapseKeys = uiState.step1CollapseKeys
+            if (uiState.entryPctMaxUi) this.entryPctMaxUi = uiState.entryPctMaxUi
+            if (uiState.selectedDatePreset) this.selectedDatePreset = uiState.selectedDatePreset
+            if (uiState.selectedTimeframe) this.selectedTimeframe = uiState.selectedTimeframe
+            if (uiState.precisionInfo) this.precisionInfo = uiState.precisionInfo
+
+            // Restore Dates
+            if (data.startDate) data.startDate = moment(data.startDate)
+            if (data.endDate) data.endDate = moment(data.endDate)
+
+            // Set Form
+            this.form.setFieldsValue(data)
+            this.$message.success(this.$t('dashboard.indicator.backtest.importSuccess') || 'Configuration loaded')
+
+            // Reactivity
+            this.$nextTick(() => {
+                this.recalcEntryPctMaxUi()
+                if (data.startDate && data.endDate) {
+                   this.fetchPrecisionInfo(data.startDate, data.endDate)
+                }
+            })
+         } catch (err) {
+            console.error(err)
+            this.$message.error('Error applying configuration')
+         }
+      })
+
+      e.target.value = ''
     },
     async handleRunBacktest () {
       // Only validate Step 2 fields (dates/capital/fees/etc.)
