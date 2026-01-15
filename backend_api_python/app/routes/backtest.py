@@ -9,6 +9,7 @@ import time
 import os
 
 from app.services.backtest import BacktestService
+from app.services.backtest_optimizer import BacktestOptimizer
 from app.utils.logger import get_logger
 from app.utils.db import get_db_connection
 import requests
@@ -17,6 +18,7 @@ logger = get_logger(__name__)
 
 backtest_bp = Blueprint('backtest', __name__)
 backtest_service = BacktestService()
+optimizer = BacktestOptimizer()
 
 
 def _openrouter_base_and_key() -> tuple[str, str]:
@@ -762,7 +764,11 @@ def ai_analyze_backtest_runs():
             analysis = _heuristic_ai_advice(runs, lang)
             return jsonify({'code': 1, 'msg': 'OK', 'data': {'analysis': analysis, 'mode': 'heuristic', 'lang': lang}})
 
-        model = (os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini") or "").strip() or "openai/gpt-4o-mini"
+        if 'model' in data and data['model']:
+            model = data['model']
+        else:
+            model = (os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini") or "").strip() or "openai/gpt-4o-mini"
+            
         temperature = float(os.getenv("OPENROUTER_TEMPERATURE", "0.4") or 0.4)
 
         output_lang_map = {
@@ -852,4 +858,53 @@ def ai_analyze_backtest_runs():
         logger.error(f"ai_analyze_backtest_runs failed: {e}")
         logger.error(traceback.format_exc())
         return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
+
+
+# --- Backtest Agent API ---
+
+@backtest_bp.route('/backtest/agent/start', methods=['POST'])
+def start_optimization():
+    """Start automated backtest optimization"""
+    try:
+        data = request.get_json()
+        job_id = optimizer.start_optimization(data)
+        return jsonify({"job_id": job_id, "status": "pending"})
+    except Exception as e:
+        logger.error(f"Start optimization failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@backtest_bp.route('/backtest/agent/control', methods=['POST'])
+def control_optimization():
+    """Control optimization job (pause/resume/stop)"""
+    try:
+        data = request.get_json()
+        job_id = data.get('job_id')
+        action = data.get('action') 
+        success = optimizer.control_job(job_id, action)
+        return jsonify({"success": success})
+    except Exception as e:
+        logger.error(f"Control optimization failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@backtest_bp.route('/backtest/agent/status/<job_id>', methods=['GET'])
+def get_optimization_status(job_id):
+    """Get optimization job status"""
+    try:
+        job = optimizer.get_job(job_id)
+        if not job:
+            return jsonify({"error": "Job not found"}), 404
+        
+        return jsonify({
+            "id": job.id,
+            "status": job.status,
+            "current_iteration": job.current_iteration,
+            "max_iterations": job.max_iterations,
+            "best_result": job.best_result,
+            "logs": job.logs[-50:], 
+            "history": job.history,
+            "error": job.error
+        })
+    except Exception as e:
+        logger.error(f"Get status failed: {e}")
+        return jsonify({"error": str(e)}), 500
 

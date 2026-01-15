@@ -22,6 +22,11 @@
       >
         {{ $t('dashboard.indicator.backtest.historyAIAnalyze') }}
       </a-button>
+      <a-select v-model="analysisModel" style="width: 160px" :placeholder="$t('dashboard.indicator.backtest.model') || 'AI Model'">
+        <a-select-option v-for="m in modelList" :key="m.value" :value="m.value">
+          {{ m.label }}
+        </a-select-option>
+      </a-select>
     </div>
 
     <div v-if="!useCurrentFilters" style="display:flex; gap: 12px; margin-bottom: 12px; align-items: center; flex-wrap: wrap;">
@@ -79,6 +84,7 @@
 
 <script>
 import request from '@/utils/request'
+import { DEFAULT_AI_MODEL_MAP, modelMapToOptions } from '@/config/aiModels'
 
 export default {
   name: 'BacktestHistoryDrawer',
@@ -104,7 +110,9 @@ export default {
       timeframes: ['1m', '5m', '15m', '30m', '1H', '4H', '1D', '1W'],
       runs: [],
       columns: [],
-      selectedRowKeys: []
+      selectedRowKeys: [],
+      analysisModel: 'deepseek-chat',
+      modelList: modelMapToOptions(DEFAULT_AI_MODEL_MAP)
     }
   },
   computed: {
@@ -205,7 +213,7 @@ export default {
         const res = await request({
           url: '/api/indicator/backtest/aiAnalyze',
           method: 'post',
-          data: { userid: this.userId, runIds: this.selectedRowKeys, lang }
+          data: { userid: this.userId, runIds: this.selectedRowKeys, lang, model: this.analysisModel }
         })
         if (res && res.code === 1 && res.data && res.data.analysis) {
           this.aiResult = res.data.analysis

@@ -24,6 +24,9 @@ import numpy as np
 from app.utils.db import get_db_connection
 from app.utils.logger import get_logger
 import requests
+from app.services.agents.backtest_agent import BacktestAgent
+from app.services.llm import LLMService
+from app.config import APIKeys
 
 logger = get_logger(__name__)
 
@@ -492,72 +495,102 @@ IMPORTANT: Output Python code directly, without explanations, without descriptio
             header = "# Existing code was provided as context.\n" + header
         return header + body
 
-    def _openrouter_base_and_key() -> tuple[str, str]:
+    def _call_deepseek_for_code(messages: list) -> str:
         """
-        Support both:
-          - OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-          - OPENROUTER_API_URL=https://openrouter.ai/api/v1/chat/completions
+        Call DeepSeek API for code generation.
+        Supports both deepseek-reasoner and deepseek-chat models.
+        Does NOT use json_object format (which causes 400 errors for code generation).
         """
-        key = os.getenv("OPENROUTER_API_KEY", "").strip()
-        base = os.getenv("OPENROUTER_BASE_URL", "").strip()
-        if not base:
-            api_url = os.getenv("OPENROUTER_API_URL", "").strip()
-            if api_url.endswith("/chat/completions"):
-                base = api_url[: -len("/chat/completions")]
-        if not base:
-            base = "https://openrouter.ai/api/v1"
-        return base, key
-
-    def _generate_code_via_openrouter() -> str:
-        base_url, api_key = _openrouter_base_and_key()
+        import os
+        api_key = APIKeys.DEEPSEEK_API_KEY
         if not api_key:
-            return _template_code()
-
-        model = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini").strip() or "openai/gpt-4o-mini"
-        # Match legacy PHP default more closely
-        temperature = float(os.getenv("OPENROUTER_TEMPERATURE", "0.7") or 0.7)
-
-        # Build user prompt (match PHP behavior)
-        user_prompt = prompt
-        if existing:
-            user_prompt = (
-                "# Existing Code (modify based on this):\n\n```python\n"
-                + existing.strip()
-                + "\n```\n\n# Modification Requirements:\n\n"
-                + prompt
-                + "\n\nPlease generate complete new Python code based on the existing code above and my modification requirements. Output the complete Python code directly, without explanations, without segmentation."
-            )
-
-        payload = {
-            "model": model,
-            "temperature": temperature,
-            "stream": False,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ],
+            return None
+            
+        base_url = os.getenv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com')
+        # Default to reasoner (thinking model) for better code quality
+        model = os.getenv('DEEPSEEK_MODEL', 'deepseek-reasoner')
+        
+        url = f"{base_url}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
         }
-
-        resp = requests.post(
-            f"{base_url}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=120,
-        )
-        resp.raise_for_status()
-        j = resp.json()
-        content = (((j.get("choices") or [{}])[0]).get("message") or {}).get("content") or ""
-        return content.strip() or _template_code()
+        
+        data = {
+            "model": model,
+            "messages": messages,
+            "temperature": 0.7,
+            "stream": False
+            # Note: NO response_format for code generation
+        }
+        
+        try:
+            response = requests.post(url, headers=headers, json=data, timeout=120)
+            response.raise_for_status()
+            result = response.json()
+            
+            if "choices" not in result or len(result["choices"]) == 0:
+                logger.error(f"DeepSeek API returned unexpected structure: {json.dumps(result)}")
+                return None
+            
+            choice = result["choices"][0]
+            message = choice.get("message", {})
+            
+            # For deepseek-reasoner, extract reasoning_content if available
+            if model == "deepseek-reasoner" and "reasoning_content" in message:
+                logger.info(f"DeepSeek reasoning: {message['reasoning_content'][:200]}...")
+            
+            return message.get("content", "")
+            
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 400:
+                logger.warning(f"DeepSeek API 400 error with {model}, trying fallback to deepseek-chat")
+                # Fallback to chat model
+                if model != "deepseek-chat":
+                    data["model"] = "deepseek-chat"
+                    try:
+                        response = requests.post(url, headers=headers, json=data, timeout=120)
+                        response.raise_for_status()
+                        result = response.json()
+                        return result["choices"][0]["message"]["content"]
+                    except Exception as fallback_err:
+                        logger.error(f"DeepSeek fallback also failed: {fallback_err}")
+                        return None
+            logger.error(f"DeepSeek API HTTP error: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"DeepSeek API error: {e}")
+            return None
 
     def stream():
         # 不扣任何 QDT：开源本地版直接生成/返回代码
         try:
-            code_text = _generate_code_via_openrouter()
+            # Build user prompt (match PHP behavior)
+            user_prompt_content = prompt
+            if existing:
+                user_prompt_content = (
+                    "# Existing Code (modify based on this):\n\n```python\n"
+                    + existing.strip()
+                    + "\n```\n\n# Modification Requirements:\n\n"
+                    + prompt
+                    + "\n\nPlease generate complete new Python code based on the existing code above and my modification requirements. Output the complete Python code directly, without explanations, without segmentation."
+                )
+
+            messages = [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt_content},
+            ]
+            
+            # Try DeepSeek first (reasoner or chat model)
+            code_text = _call_deepseek_for_code(messages)
+            
+            # If empty or failed, fallback to template
+            if not code_text or not code_text.strip():
+                logger.info("DeepSeek returned empty, using template")
+                code_text = _template_code()
+                
         except Exception as e:
-            logger.warning(f"ai_generate openrouter failed, fallback to template: {e}")
+            logger.warning(f"ai_generate failed, fallback to template: {e}")
             code_text = _template_code()
 
         # Stream in chunks (front-end appends).
@@ -575,3 +608,64 @@ IMPORTANT: Output Python code directly, without explanations, without descriptio
             "X-Accel-Buffering": "no",
         },
     )
+
+@indicator_bp.route("/update-strategy-params", methods=["POST"])
+def update_strategy_params():
+    """
+    Update indicator code with optimized parameters.
+    Request: { userid: int, indicatorId: int, params: kv-dict }
+    """
+    try:
+        data = request.get_json() or {}
+        user_id = int(data.get("userid") or 1)
+        indicator_id = int(data.get("indicatorId") or 0)
+        params = data.get("params") or {}
+
+        if not indicator_id or not params:
+            return jsonify({"code": 0, "msg": "indicatorId and params are required", "data": None}), 400
+
+        with get_db_connection() as db:
+            cur = db.cursor()
+            
+            # 1. Fetch current code
+            cur.execute(
+                "SELECT code, name, description, publish_to_community, pricing_type, price, preview_image FROM qd_indicator_codes WHERE id = ? AND user_id = ?",
+                (indicator_id, user_id)
+            )
+            row = cur.fetchone()
+            if not row:
+                return jsonify({"code": 0, "msg": "Indicator not found", "data": None}), 404
+            
+            current_code = row['code']
+            logger.info(f"Update params for indicator {indicator_id}, params: {params}")
+            
+            # 2. Rewrite code using Agent
+            llm_service = LLMService()
+            agent = BacktestAgent(llm_service)
+            
+            # Use 'deepseek-chat' (V3) for faster rewriting
+            logger.info(f"Calling apply_params_to_code with {len(params)} params")
+            new_code = agent.apply_params_to_code(current_code, params, model="deepseek-chat")
+            
+            logger.info(f"Code rewrite result: original length={len(current_code)}, new length={len(new_code)}")
+            
+            # 3. Update DB
+            now = _now_ts()
+            cur.execute(
+                """
+                UPDATE qd_indicator_codes
+                SET code = ?, updatetime = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (new_code, now, now, indicator_id)
+            )
+            db.commit()
+            
+            cur.close()
+
+        return jsonify({"code": 1, "msg": "Strategy defaults updated", "data": {"code": new_code}})
+    
+    except Exception as e:
+        logger.error(f"update_strategy_params failed: {str(e)}", exc_info=True)
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500
+

@@ -1,10 +1,13 @@
 """
 Backtest Service
 """
+import os
+import pickle
 import math
 import traceback
-from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Dict, List, Any, Optional, Union
+from pathlib import Path
 
 import pandas as pd
 import numpy as np
@@ -33,6 +36,48 @@ class BacktestService:
         'default_exec_tf': '1m',  # Default execution timeframe
         'fallback_exec_tf': '5m', # Fallback execution timeframe
     }
+    
+    # Cache directory for K-line data
+    CACHE_DIR = Path('data/kline_cache')
+    
+    @staticmethod
+    def _get_cache_path(cache_key: str) -> Path:
+        """Get cache file path for given cache key"""
+        BacktestService.CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        return BacktestService.CACHE_DIR / f"{cache_key}.pkl"
+    
+    @staticmethod
+    def _load_kline_cache(cache_key: str) -> Optional[pd.DataFrame]:
+        """Load K-line data from cache"""
+        try:
+            cache_path = BacktestService._get_cache_path(cache_key)
+            if cache_path.exists():
+                with open(cache_path, 'rb') as f:
+                    return pickle.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to load cache {cache_key}: {e}")
+        return None
+    
+    @staticmethod
+    def _save_kline_cache(cache_key: str, df: pd.DataFrame):
+        """Save K-line data to cache"""
+        try:
+            cache_path = BacktestService._get_cache_path(cache_key)
+            with open(cache_path, 'wb') as f:
+                pickle.dump(df, f)
+        except Exception as e:
+            logger.error(f"Failed to save cache {cache_key}: {e}")
+    
+    @staticmethod
+    def cleanup_cache(cache_key: str):
+        """Delete cache file for given cache key"""
+        try:
+            cache_path = BacktestService._get_cache_path(cache_key)
+            if cache_path.exists():
+                cache_path.unlink()
+                logger.info(f"Deleted cache file: {cache_key}")
+        except Exception as e:
+            logger.error(f"Failed to delete cache {cache_key}: {e}")
     
     @staticmethod
     def _infer_candle_path(open_: float, high: float, low: float, close: float) -> List[float]:
@@ -123,7 +168,8 @@ class BacktestService:
         leverage: int = 1,
         trade_direction: str = 'long',
         strategy_config: Optional[Dict[str, Any]] = None,
-        enable_mtf: bool = True
+        enable_mtf: bool = True,
+        cache_key: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Multi-timeframe backtest.
@@ -982,7 +1028,8 @@ class BacktestService:
         slippage: float = 0.0,  # Ideal backtest environment, no slippage
         leverage: int = 1,
         trade_direction: str = 'long',
-        strategy_config: Optional[Dict[str, Any]] = None
+        strategy_config: Optional[Dict[str, Any]] = None,
+        cache_key: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Run backtest.
@@ -1003,30 +1050,99 @@ class BacktestService:
         """
         
         # 1. Fetch candle data
-        df = self._fetch_kline_data(market, symbol, timeframe, start_date, end_date)
+        logger.info(f"Fetching K-line data: {symbol} {timeframe} from {start_date} to {end_date}")
+        df = self._fetch_kline_data(market, symbol, timeframe, start_date, end_date, cache_key)
         if df.empty:
             raise ValueError("No candle data available in the backtest date range")
+        logger.info(f"Fetched {len(df)} candles")
+        
+        # Calculate Market Context
+        market_stats = {}
+        if not df.empty:
+            close_prices = df['close']
+            market_return = (close_prices.iloc[-1] - close_prices.iloc[0]) / close_prices.iloc[0] * 100
+            
+            # Simple volatility (std of pct change) - Annualized
+            pct_changes = close_prices.pct_change().dropna()
+            
+            # Estimate annualization factor based on timeframe
+            tf_map = {
+                '1m': 365*24*60, '5m': 365*24*12, '15m': 365*24*4, '30m': 365*24*2,
+                '1h': 365*24, '4h': 365*6, '6h': 365*4, '8h': 365*3, '12h': 365*2, 
+                '1d': 365, '3d': 122, '1w': 52
+            }
+            # Normalize timeframe string (e.g. '1H' -> '1h')
+            tf_key = timeframe.lower() if timeframe else '1d'
+            factor = tf_map.get(tf_key, 365) # Default to daily
+            
+            volatility = pct_changes.std() * (factor ** 0.5) * 100
+            
+            # High/Low Range
+            high_price = df['high'].max()
+            low_price = df['low'].min()
+            price_range_pct = (high_price - low_price) / low_price * 100
+            
+            # Simple Trend
+            trend = "Bullish" if market_return > 0 else "Bearish"
+            if abs(market_return) < 2 and price_range_pct > 5:
+                trend = "Sideways/Volatile"
+
+            market_stats = {
+                 "period_days": (end_date - start_date).days,
+                 "total_return_pct": round(market_return, 2),
+                 "volatility_std": round(volatility, 3),
+                 "price_range_pct": round(price_range_pct, 2),
+                 "trend": trend,
+                 "bar_count": len(df)
+            }
         
         
-        # 2. Execute indicator code to get signals (pass backtest params)
+        if not isinstance(indicator_code, str):
+            indicator_code = str(indicator_code)
+
+        # 2. Execute Strategy (Calculate Signals)
+        # Pass parameters to strategy code (if it uses them)
         backtest_params = {
             'leverage': leverage,
             'initial_capital': initial_capital,
             'commission': commission,
-            'trade_direction': trade_direction
+            'trade_direction': trade_direction,
+            'params': strategy_config.get('params', {}) if strategy_config else {}
         }
         signals = self._execute_indicator(indicator_code, df, backtest_params)
         
-        # 3. Simulate trading
+        # DEBUG LOGGING
+        try:
+            if isinstance(signals, dict):
+                buy_signals = signals['buy'].sum() if 'buy' in signals else 0
+                sell_signals = signals['sell'].sum() if 'sell' in signals else 0
+            elif hasattr(signals, 'columns'):
+                buy_signals = signals['buy'].sum() if 'buy' in signals.columns else 0
+                sell_signals = signals['sell'].sum() if 'sell' in signals.columns else 0
+            else:
+                buy_signals = sell_signals = 0
+            logger.info(f"Backtest Debug - Rows: {len(df)}, Buy Signals: {buy_signals}, Sell Signals: {sell_signals}")
+        except Exception as e:
+            logger.warning(f"Failed to log debug info: {e}")
+        
+        # 3. Apply Risk Management & Calculate Trades (simulate execution)
+        logger.info("Starting trade simulation...")
         equity_curve, trades, total_commission = self._simulate_trading(
             df, signals, initial_capital, commission, slippage, leverage, trade_direction, strategy_config
         )
+        logger.info(f"Trade simulation completed: {len(trades)} total trades (open+close), {len(equity_curve)} equity points, commission: {total_commission:.2f}")
         
         # 4. Calculate metrics
         metrics = self._calculate_metrics(equity_curve, trades, initial_capital, timeframe, start_date, end_date, total_commission)
+        logger.info(f"Calculated metrics: totalReturn={metrics.get('totalReturn', 'N/A')}, trades={metrics.get('totalTrades', 0)}")
         
-        # 5. Format result
-        return self._format_result(metrics, equity_curve, trades)
+        # 5. Format and return result
+        return {
+            'metrics': metrics,
+            'equity_curve': equity_curve,
+            'trades': trades,
+            'market_context': market_stats
+        }
     
     def _fetch_kline_data(
         self,
@@ -1034,9 +1150,17 @@ class BacktestService:
         symbol: str,
         timeframe: str,
         start_date: datetime,
-        end_date: datetime
+        end_date: datetime,
+        cache_key: Optional[str] = None
     ) -> pd.DataFrame:
-        """Fetch candle data and convert to DataFrame"""
+        """Fetch candle data and convert to DataFrame with optional caching"""
+        # Try to load from cache if cache_key is provided
+        if cache_key:
+            cached_df = self._load_kline_cache(cache_key)
+            if cached_df is not None:
+                logger.info(f"Loaded K-line data from cache: {cache_key}")
+                return cached_df
+        
         # Calculate required candle count
         total_seconds = (end_date - start_date).total_seconds()
         tf_seconds = self.TIMEFRAME_SECONDS.get(timeframe, 86400)
@@ -1044,7 +1168,6 @@ class BacktestService:
         
         # Calculate before_time (end date + 1 day)
         before_time = int((end_date + timedelta(days=1)).timestamp())
-        
         
         # Fetch data
         kline_data = DataSourceFactory.get_kline(
@@ -1072,7 +1195,18 @@ class BacktestService:
             pass
         
         # Filter date range
+        # Ensure start_date and end_date are tz-naive (UTC) to match df.index
+        if start_date.tzinfo is not None:
+            start_date = start_date.astimezone(timezone.utc).replace(tzinfo=None)
+        if end_date.tzinfo is not None:
+            end_date = end_date.astimezone(timezone.utc).replace(tzinfo=None)
+            
         df = df[(df.index >= start_date) & (df.index <= end_date)].copy()
+        
+        # Save to cache if cache_key is provided
+        if cache_key and not df.empty:
+            self._save_kline_cache(cache_key, df)
+            logger.info(f"Saved K-line data to cache: {cache_key}")
         
         if len(df) > 0:
             pass
@@ -1113,6 +1247,7 @@ class BacktestService:
                 local_vars['initial_capital'] = backtest_params.get('initial_capital', 10000)
                 local_vars['commission'] = backtest_params.get('commission', 0.0002)
                 local_vars['trade_direction'] = backtest_params.get('trade_direction', 'both')
+                local_vars['params'] = backtest_params.get('params', {})
             
             # Add technical indicator functions
             local_vars.update(self._get_indicator_functions())
@@ -1527,6 +1662,11 @@ import pandas as pd
         # Add position price (if indicator provides)
         add_long_price_arr = signals.get('add_long_price', pd.Series([0.0] * len(df))).values
         add_short_price_arr = signals.get('add_short_price', pd.Series([0.0] * len(df))).values
+        
+        # Record initial equity (ensures equity_curve is never empty)
+        if len(df) > 0:
+            first_timestamp = df.index[0]
+            equity_curve.append({'time': first_timestamp.strftime('%Y-%m-%d %H:%M'), 'value': initial_capital})
         
         for i, (timestamp, row) in enumerate(df.iterrows()):
             # 爆仓后直接停止回测，输出结果
@@ -3646,6 +3786,12 @@ import pandas as pd
             if equity_curve:
                 equity_curve[-1]['value'] = round(capital, 2)
         
+        # Ensure final equity point is recorded (important for zero-trade scenarios)
+        if len(df) > 0:
+            last_timestamp = df.index[-1]
+            if not equity_curve or equity_curve[-1]['time'] != last_timestamp.strftime('%Y-%m-%d %H:%M'):
+                equity_curve.append({'time': last_timestamp.strftime('%Y-%m-%d %H:%M'), 'value': round(capital, 2)})
+        
         return equity_curve, trades, total_commission_paid
     
     def _calculate_metrics(
@@ -3660,10 +3806,22 @@ import pandas as pd
     ) -> Dict:
         """计算回测指标"""
         if not equity_curve:
-            return {}
+            logger.warning("Empty equity curve, returning zero metrics")
+            # Return valid zero metrics instead of empty dict
+            return {
+                'totalReturn': 0.0,
+                'annualReturn': 0.0,
+                'maxDrawdown': 0.0,
+                'sharpeRatio': 0.0,
+                'winRate': 0.0,
+                'profitFactor': 0.0,
+                'totalTrades': 0,
+                'totalProfit': 0.0,
+                'totalCommission': 0.0
+            }
         
         final_value = equity_curve[-1]['value']
-        total_return = (final_value - initial_capital) / initial_capital * 100
+        total_return = (final_value - initial_capital) / initial_capital  # Return as decimal, not percentage
         
         # Calculate annualized return: simple, not compound
         # For high-return strategies, compound annualization produces unrealistic numbers
@@ -3692,23 +3850,26 @@ import pandas as pd
         win_trades = [t for t in closing_trades if t['profit'] > 0]
         loss_trades = [t for t in closing_trades if t['profit'] < 0]
         total_trades = len(closing_trades)
-        win_rate = len(win_trades) / total_trades * 100 if total_trades > 0 else 0
+        win_rate = len(win_trades) / total_trades if total_trades > 0 else 0  # Return as decimal, not percentage
         
         # Calculate profit factor (= total profit / total loss)
         total_wins = sum(t['profit'] for t in win_trades)
         total_losses = abs(sum(t['profit'] for t in loss_trades))
         profit_factor = total_wins / total_losses if total_losses > 0 else (total_wins if total_wins > 0 else 0)
         
+        def safe(val):
+            return 0.0 if (val is None or math.isnan(val)) else round(val, 2)
+
         return {
-            'totalReturn': round(total_return, 2),
-            'annualReturn': round(annual_return, 2),
-            'maxDrawdown': round(max_drawdown, 2),
-            'sharpeRatio': round(sharpe, 2),
-            'winRate': round(win_rate, 2),
-            'profitFactor': round(profit_factor, 2),
+            'totalReturn': safe(total_return),
+            'annualReturn': safe(annual_return),
+            'maxDrawdown': safe(max_drawdown),
+            'sharpeRatio': safe(sharpe),
+            'winRate': safe(win_rate),
+            'profitFactor': safe(profit_factor),
             'totalTrades': total_trades,
-            'totalProfit': round(total_profit, 2),
-            'totalCommission': round(total_commission, 2)
+            'totalProfit': safe(total_profit),
+            'totalCommission': safe(total_commission)
         }
     
     def _calculate_max_drawdown(self, values: List[float]) -> float:
