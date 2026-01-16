@@ -491,6 +491,7 @@ class TradingExecutor:
             if execution_mode not in ['signal', 'live']:
                 execution_mode = 'signal'
             notification_config = strategy.get('notification_config') or {}
+            exchange_config = strategy.get('exchange_config') or {}  
             strategy_name = strategy.get('strategy_name') or f"strategy_{int(strategy_id)}"
             symbol = trading_config.get('symbol', '')
             timeframe = trading_config.get('timeframe', '1H')
