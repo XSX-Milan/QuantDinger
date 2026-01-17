@@ -5,8 +5,7 @@
     :width="1100"
     :maskClosable="false"
     @cancel="$emit('cancel')"
-    class="backtest-run-viewer"
-  >
+    class="backtest-run-viewer">
     <div v-if="!run || !run.result" style="padding: 12px 0;">
       <a-empty :description="$t('dashboard.indicator.backtest.historyNoData')" />
     </div>
@@ -17,8 +16,7 @@
         type="info"
         show-icon
         style="margin-bottom: 12px;"
-        :message="$t('dashboard.indicator.backtest.savedRunId', { id: run.id })"
-      />
+        :message="$t('dashboard.indicator.backtest.savedRunId', { id: run.id })" />
 
       <!-- Metrics -->
       <div class="metrics-cards">
@@ -53,7 +51,9 @@
         </div>
         <div class="metric-card negative">
           <div class="metric-label">{{ $t('dashboard.indicator.backtest.totalCommission') }}</div>
-          <div class="metric-value">-${{ result.totalCommission ? result.totalCommission.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00' }}</div>
+          <div class="metric-value">-${{ result.totalCommission ? result.totalCommission.toLocaleString('en-US', {
+            minimumFractionDigits: 2, maximumFractionDigits: 2
+          }) : '0.00' }}</div>
         </div>
       </div>
 
@@ -72,8 +72,7 @@
           :pagination="{ pageSize: 10, size: 'small' }"
           size="small"
           :scroll="{ x: 800 }"
-          :rowKey="rowKey"
-        >
+          :rowKey="rowKey">
           <template slot="type" slot-scope="text">
             <a-tag :color="getTradeTypeColor(text)">
               {{ getTradeTypeText(text) }}
@@ -199,8 +198,10 @@ export default {
     },
     formatPercent (value) {
       if (value === null || value === undefined) return '--'
+      // 后端返回的是小数格式（如0.13表示13%），需要乘以100
+      const pctValue = value * 100
       const sign = value >= 0 ? '+' : ''
-      return `${sign}${Number(value).toFixed(2)}%`
+      return `${sign}${pctValue.toFixed(2)}%`
     },
     formatMoney (value) {
       if (value === null || value === undefined) return '--'
@@ -270,14 +271,48 @@ export default {
   border-radius: 8px;
   padding: 12px;
 }
-.metric-card.positive { border-color: rgba(82, 196, 26, 0.35); }
-.metric-card.negative { border-color: rgba(245, 34, 45, 0.35); }
-.metric-label { color: #8c8c8c; font-size: 12px; }
-.metric-value { font-size: 18px; font-weight: 600; margin-top: 4px; }
-.metric-amount { color: #8c8c8c; font-size: 12px; margin-top: 4px; }
 
-.chart-section { margin-top: 8px; }
-.chart-title { font-weight: 600; margin: 8px 0; color: #262626; }
-.equity-chart { width: 100%; height: 280px; }
-.trades-section { margin-top: 16px; }
+.metric-card.positive {
+  border-color: rgba(82, 196, 26, 0.35);
+}
+
+.metric-card.negative {
+  border-color: rgba(245, 34, 45, 0.35);
+}
+
+.metric-label {
+  color: #8c8c8c;
+  font-size: 12px;
+}
+
+.metric-value {
+  font-size: 18px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.metric-amount {
+  color: #8c8c8c;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.chart-section {
+  margin-top: 8px;
+}
+
+.chart-title {
+  font-weight: 600;
+  margin: 8px 0;
+  color: #262626;
+}
+
+.equity-chart {
+  width: 100%;
+  height: 280px;
+}
+
+.trades-section {
+  margin-top: 16px;
+}
 </style>

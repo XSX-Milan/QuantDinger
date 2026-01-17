@@ -5,15 +5,20 @@
     :width="1100"
     @cancel="handleCancel"
     :maskClosable="false"
-    class="backtest-modal"
-  >
+    class="backtest-modal">
     <div class="backtest-content">
       <a-tabs v-model="activeTab">
         <a-tab-pane key="manual" :tab="$t('dashboard.indicator.backtest.tabManual') || 'Manual Backtest'">
           <a-steps :current="currentStep" size="small" style="margin-bottom: 16px;">
-            <a-step :title="$t('dashboard.indicator.backtest.steps.strategy.title')" :description="$t('dashboard.indicator.backtest.steps.strategy.desc')" />
-            <a-step :title="$t('dashboard.indicator.backtest.steps.trading.title')" :description="$t('dashboard.indicator.backtest.steps.trading.desc')" />
-            <a-step :title="$t('dashboard.indicator.backtest.steps.results.title')" :description="$t('dashboard.indicator.backtest.steps.results.desc')" />
+            <a-step
+              :title="$t('dashboard.indicator.backtest.steps.strategy.title')"
+              :description="$t('dashboard.indicator.backtest.steps.strategy.desc')" />
+            <a-step
+              :title="$t('dashboard.indicator.backtest.steps.trading.title')"
+              :description="$t('dashboard.indicator.backtest.steps.trading.desc')" />
+            <a-step
+              :title="$t('dashboard.indicator.backtest.steps.results.title')"
+              :description="$t('dashboard.indicator.backtest.steps.results.desc')" />
           </a-steps>
 
           <!-- Steps 1 & 2: configuration -->
@@ -32,8 +37,7 @@
                             :max="100"
                             :step="0.01"
                             :precision="4"
-                            style="width: 220px"
-                          />
+                            style="width: 220px" />
                         </a-form-item>
                       </a-col>
                       <a-col :span="12">
@@ -44,8 +48,7 @@
                             :max="1000"
                             :step="0.01"
                             :precision="4"
-                            style="width: 220px"
-                          />
+                            style="width: 220px" />
                         </a-form-item>
                       </a-col>
                     </a-row>
@@ -55,8 +58,7 @@
                         <a-form-item :label="$t('dashboard.indicator.backtest.field.trailingEnabled')">
                           <a-switch
                             v-decorator="['trailingEnabled', { valuePropName: 'checked', initialValue: false }]"
-                            @change="onTrailingToggle"
-                          />
+                            @change="onTrailingToggle" />
                         </a-form-item>
                       </a-col>
                       <a-col :span="12"></a-col>
@@ -72,8 +74,7 @@
                               :max="100"
                               :step="0.01"
                               :precision="4"
-                              style="width: 220px"
-                            />
+                              style="width: 220px" />
                           </a-form-item>
                         </a-col>
                         <a-col :span="12">
@@ -84,8 +85,7 @@
                               :max="1000"
                               :step="0.01"
                               :precision="4"
-                              style="width: 220px"
-                            />
+                              style="width: 220px" />
                           </a-form-item>
                         </a-col>
                       </a-row>
@@ -98,16 +98,14 @@
                         <a-form-item :label="$t('dashboard.indicator.backtest.field.trendAddEnabled')">
                           <a-switch
                             v-decorator="['trendAddEnabled', { valuePropName: 'checked', initialValue: false }]"
-                            @change="onTrendAddToggle"
-                          />
+                            @change="onTrendAddToggle" />
                         </a-form-item>
                       </a-col>
                       <a-col :span="12">
                         <a-form-item :label="$t('dashboard.indicator.backtest.field.dcaAddEnabled')">
                           <a-switch
                             v-decorator="['dcaAddEnabled', { valuePropName: 'checked', initialValue: false }]"
-                            @change="onDcaAddToggle"
-                          />
+                            @change="onDcaAddToggle" />
                         </a-form-item>
                       </a-col>
                     </a-row>
@@ -121,8 +119,7 @@
                             :step="0.01"
                             :precision="4"
                             style="width: 220px"
-                            @change="onScaleParamsChange"
-                          />
+                            @change="onScaleParamsChange" />
                         </a-form-item>
                       </a-col>
                       <a-col :span="12">
@@ -134,8 +131,7 @@
                             :step="0.01"
                             :precision="4"
                             style="width: 220px"
-                            @change="onScaleParamsChange"
-                          />
+                            @change="onScaleParamsChange" />
                         </a-form-item>
                       </a-col>
                     </a-row>
@@ -149,8 +145,7 @@
                             :step="0.1"
                             :precision="4"
                             style="width: 220px"
-                            @change="onScaleParamsChange"
-                          />
+                            @change="onScaleParamsChange" />
                         </a-form-item>
                       </a-col>
                       <a-col :span="12">
@@ -162,8 +157,7 @@
                             :step="0.1"
                             :precision="4"
                             style="width: 220px"
-                            @change="onScaleParamsChange"
-                          />
+                            @change="onScaleParamsChange" />
                         </a-form-item>
                       </a-col>
                     </a-row>
@@ -177,8 +171,7 @@
                             :step="1"
                             :precision="0"
                             style="width: 220px"
-                            @change="onScaleParamsChange"
-                          />
+                            @change="onScaleParamsChange" />
                         </a-form-item>
                       </a-col>
                       <a-col :span="12">
@@ -190,8 +183,7 @@
                             :step="1"
                             :precision="0"
                             style="width: 220px"
-                            @change="onScaleParamsChange"
-                          />
+                            @change="onScaleParamsChange" />
                         </a-form-item>
                       </a-col>
                     </a-row>
@@ -201,12 +193,14 @@
                     <a-row :gutter="24">
                       <a-col :span="12">
                         <a-form-item :label="$t('dashboard.indicator.backtest.field.trendReduceEnabled')">
-                          <a-switch v-decorator="['trendReduceEnabled', { valuePropName: 'checked', initialValue: false }]" />
+                          <a-switch
+                            v-decorator="['trendReduceEnabled', { valuePropName: 'checked', initialValue: false }]" />
                         </a-form-item>
                       </a-col>
                       <a-col :span="12">
                         <a-form-item :label="$t('dashboard.indicator.backtest.field.adverseReduceEnabled')">
-                          <a-switch v-decorator="['adverseReduceEnabled', { valuePropName: 'checked', initialValue: false }]" />
+                          <a-switch
+                            v-decorator="['adverseReduceEnabled', { valuePropName: 'checked', initialValue: false }]" />
                         </a-form-item>
                       </a-col>
                     </a-row>
@@ -219,8 +213,7 @@
                             :max="1000"
                             :step="0.01"
                             :precision="4"
-                            style="width: 220px"
-                          />
+                            style="width: 220px" />
                         </a-form-item>
                       </a-col>
                       <a-col :span="12">
@@ -231,8 +224,7 @@
                             :max="1000"
                             :step="0.01"
                             :precision="4"
-                            style="width: 220px"
-                          />
+                            style="width: 220px" />
                         </a-form-item>
                       </a-col>
                     </a-row>
@@ -245,8 +237,7 @@
                             :max="100"
                             :step="0.1"
                             :precision="4"
-                            style="width: 220px"
-                          />
+                            style="width: 220px" />
                         </a-form-item>
                       </a-col>
                       <a-col :span="12">
@@ -257,8 +248,7 @@
                             :max="100"
                             :step="0.1"
                             :precision="4"
-                            style="width: 220px"
-                          />
+                            style="width: 220px" />
                         </a-form-item>
                       </a-col>
                     </a-row>
@@ -291,7 +281,9 @@
                   <a-collapse-panel key="position" :header="$t('dashboard.indicator.backtest.panel.position')">
                     <a-row :gutter="24">
                       <a-col :span="12">
-                        <a-form-item :label="$t('dashboard.indicator.backtest.field.entryPct')" :help="$t('dashboard.indicator.backtest.hint.entryPctMax', { maxPct: Number(entryPctMaxUi || 0).toFixed(0) })">
+                        <a-form-item
+                          :label="$t('dashboard.indicator.backtest.field.entryPct')"
+                          :help="$t('dashboard.indicator.backtest.hint.entryPctMax', { maxPct: Number(entryPctMaxUi || 0).toFixed(0) })">
                           <a-input-number
                             v-decorator="['entryPct', { initialValue: 100 }]"
                             :min="0"
@@ -299,8 +291,7 @@
                             :step="0.1"
                             :precision="4"
                             style="width: 220px"
-                            @change="onEntryPctChange"
-                          />
+                            @change="onEntryPctChange" />
                         </a-form-item>
                       </a-col>
                       <a-col :span="12"></a-col>
@@ -312,11 +303,7 @@
               <!-- Step 2: trading settings -->
               <div v-show="currentStep === 1">
                 <!-- 合并的信息提示：交易对信息 + 精度信息 -->
-                <a-alert
-                  :type="combinedAlertType"
-                  show-icon
-                  style="margin-bottom: 12px;"
-                >
+                <a-alert :type="combinedAlertType" show-icon style="margin-bottom: 12px;">
                   <template slot="message">
                     <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
                       <!-- 基本信息 -->
@@ -328,17 +315,30 @@
                         <strong>Timeframe:</strong> {{ selectedTimeframe || timeframe || '-' }}
                       </span>
                       <!-- 精度信息 -->
-                      <span v-if="precisionInfo && precisionInfo.enabled" style="margin-left: 12px; border-left: 1px solid #d9d9d9; padding-left: 12px;">
-                        <a-icon :type="precisionInfo.precision === 'high' ? 'thunderbolt' : 'clock-circle'" style="margin-right: 4px;" />
+                      <span
+                        v-if="precisionInfo && precisionInfo.enabled"
+                        style="margin-left: 12px; border-left: 1px solid #d9d9d9; padding-left: 12px;">
+                        <a-icon
+                          :type="precisionInfo.precision === 'high' ? 'thunderbolt' : 'clock-circle'"
+                          style="margin-right: 4px;" />
                         {{ $t('dashboard.indicator.backtest.precisionMode') }}:
-                        <a-tag :color="precisionInfo.precision === 'high' ? 'green' : 'blue'" size="small" style="margin-left: 4px;">
+                        <a-tag
+                          :color="precisionInfo.precision === 'high' ? 'green' : 'blue'"
+                          size="small"
+                          style="margin-left: 4px;">
                           {{ precisionInfo.timeframe }}
                         </a-tag>
                         <span style="color: #666; margin-left: 6px;">
-                          ({{ $t('dashboard.indicator.backtest.estimatedCandles', { count: precisionInfo.estimated_candles ? precisionInfo.estimated_candles.toLocaleString() : '-' }) }})
+                          ({{ $t('dashboard.indicator.backtest.estimatedCandles', {
+                            count:
+                              precisionInfo.estimated_candles ? precisionInfo.estimated_candles.toLocaleString() : '-'
+                          })
+                          }})
                         </span>
                       </span>
-                      <span v-else-if="precisionInfo && !precisionInfo.enabled && market && market.toLowerCase() === 'crypto'" style="margin-left: 12px; border-left: 1px solid #d9d9d9; padding-left: 12px; color: #faad14;">
+                      <span
+                        v-else-if="precisionInfo && !precisionInfo.enabled && market && market.toLowerCase() === 'crypto'"
+                        style="margin-left: 12px; border-left: 1px solid #d9d9d9; padding-left: 12px; color: #faad14;">
                         <a-icon type="warning" style="margin-right: 4px;" />
                         {{ $t('dashboard.indicator.backtest.standardModeWarning') }}
                       </span>
@@ -346,9 +346,12 @@
                   </template>
                   <template slot="description">
                     <span v-if="precisionInfo && precisionInfo.enabled" style="font-size: 12px; color: #888;">
-                      {{ precisionInfo.precision === 'high' ? $t('dashboard.indicator.backtest.highPrecisionDesc') : $t('dashboard.indicator.backtest.mediumPrecisionDesc') }}
+                      {{ precisionInfo.precision === 'high' ? $t('dashboard.indicator.backtest.highPrecisionDesc') :
+                        $t('dashboard.indicator.backtest.mediumPrecisionDesc') }}
                     </span>
-                    <span v-else-if="precisionInfo && !precisionInfo.enabled && market && market.toLowerCase() === 'crypto'" style="font-size: 12px; color: #888;">
+                    <span
+                      v-else-if="precisionInfo && !precisionInfo.enabled && market && market.toLowerCase() === 'crypto'"
+                      style="font-size: 12px; color: #888;">
                       {{ precisionInfo.message || $t('dashboard.indicator.backtest.standardModeDesc') }}
                     </span>
                   </template>
@@ -356,14 +359,16 @@
 
                 <!-- 快捷日期选择按钮 -->
                 <div class="date-quick-select" style="margin-bottom: 12px;">
-                  <span style="margin-right: 8px; color: #666; font-size: 13px;">{{ $t('dashboard.indicator.backtest.quickSelect') || '快速选择' }}:</span>
+                  <span style="margin-right: 8px; color: #666; font-size: 13px;">{{
+                    $t('dashboard.indicator.backtest.quickSelect') ||
+                      '快速选择' }}:</span>
                   <a-button-group size="small">
                     <a-button
                       v-for="preset in datePresets"
                       :key="preset.key"
                       :type="selectedDatePreset === preset.key ? 'primary' : 'default'"
-                      @click="applyDatePreset(preset)"
-                    >{{ preset.label }}</a-button>
+                      @click="applyDatePreset(preset)">{{
+                        preset.label }}</a-button>
                   </a-button-group>
                 </div>
 
@@ -375,8 +380,7 @@
                         style="width: 100%"
                         :disabled-date="disabledStartDate"
                         :placeholder="$t('dashboard.indicator.backtest.selectStartDate')"
-                        @change="onDateChange"
-                      />
+                        @change="onDateChange" />
                     </a-form-item>
                   </a-col>
                   <a-col :span="12">
@@ -386,8 +390,7 @@
                         style="width: 100%"
                         :disabled-date="disabledEndDate"
                         :placeholder="$t('dashboard.indicator.backtest.selectEndDate')"
-                        @change="onDateChange"
-                      />
+                        @change="onDateChange" />
                     </a-form-item>
                   </a-col>
                 </a-row>
@@ -401,8 +404,7 @@
                         :precision="2"
                         style="width: 100%"
                         :formatter="value => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')"
-                        :parser="value => value.replace(/\$\s?|(,*)/g, '')"
-                      />
+                        :parser="value => value.replace(/\$\s?|(,*)/g, '')" />
                     </a-form-item>
                   </a-col>
                   <a-col :span="12">
@@ -413,8 +415,7 @@
                         :max="10"
                         :step="0.01"
                         :precision="4"
-                        style="width: 100%"
-                      />
+                        style="width: 100%" />
                       <div class="field-hint">{{ $t('dashboard.indicator.backtest.commissionHint') }}</div>
                     </a-form-item>
                   </a-col>
@@ -428,8 +429,7 @@
                         :max="10"
                         :step="0.01"
                         :precision="4"
-                        style="width: 100%"
-                      />
+                        style="width: 100%" />
                     </a-form-item>
                   </a-col>
                   <a-col :span="12">
@@ -442,18 +442,14 @@
                         :precision="0"
                         style="width: 100%"
                         :formatter="value => `${value}x`"
-                        :parser="value => value.replace('x', '')"
-                      />
+                        :parser="value => value.replace('x', '')" />
                     </a-form-item>
                   </a-col>
                 </a-row>
                 <a-row :gutter="24">
                   <a-col :span="12">
                     <a-form-item :label="$t('dashboard.indicator.backtest.tradeDirection')">
-                      <a-select
-                        v-decorator="['tradeDirection', { initialValue: 'long' }]"
-                        style="width: 100%"
-                      >
+                      <a-select v-decorator="['tradeDirection', { initialValue: 'long' }]" style="width: 100%">
                         <a-select-option value="long">
                           {{ $t('dashboard.indicator.backtest.longOnly') }}
                         </a-select-option>
@@ -468,11 +464,7 @@
                   </a-col>
                   <a-col :span="12">
                     <a-form-item :label="$t('dashboard.indicator.backtest.timeframe')">
-                      <a-select
-                        v-model="selectedTimeframe"
-                        style="width: 100%"
-                        @change="onTimeframeChange"
-                      >
+                      <a-select v-model="selectedTimeframe" style="width: 100%" @change="onTimeframeChange">
                         <a-select-option value="1m">1m</a-select-option>
                         <a-select-option value="5m">5m</a-select-option>
                         <a-select-option value="15m">15m</a-select-option>
@@ -496,8 +488,7 @@
               type="success"
               show-icon
               style="margin-bottom: 12px;"
-              :message="$t('dashboard.indicator.backtest.savedRunId', { id: backtestRunId })"
-            />
+              :message="$t('dashboard.indicator.backtest.savedRunId', { id: backtestRunId })" />
 
             <!-- 关键指标卡片 -->
             <div class="metrics-cards">
@@ -506,7 +497,9 @@
                 <div class="metric-value">{{ formatPercent(result.totalReturn) }}</div>
                 <div class="metric-amount">{{ formatMoney(result.totalProfit) }}</div>
               </div>
-              <div class="metric-card" :class="{ positive: result.annualReturn > 0, negative: result.annualReturn < 0 }">
+              <div
+                class="metric-card"
+                :class="{ positive: result.annualReturn > 0, negative: result.annualReturn < 0 }">
                 <div class="metric-label">{{ $t('dashboard.indicator.backtest.annualReturn') }}</div>
                 <div class="metric-value">{{ formatPercent(result.annualReturn) }}</div>
               </div>
@@ -522,7 +515,9 @@
                 <div class="metric-label">{{ $t('dashboard.indicator.backtest.winRate') }}</div>
                 <div class="metric-value">{{ formatPercent(result.winRate) }}</div>
               </div>
-              <div class="metric-card" :class="{ positive: result.profitFactor >= 1.5, negative: result.profitFactor < 1 }">
+              <div
+                class="metric-card"
+                :class="{ positive: result.profitFactor >= 1.5, negative: result.profitFactor < 1 }">
                 <div class="metric-label">{{ $t('dashboard.indicator.backtest.profitFactor') }}</div>
                 <div class="metric-value">{{ result.profitFactor.toFixed(2) }}</div>
               </div>
@@ -532,7 +527,9 @@
               </div>
               <div class="metric-card negative">
                 <div class="metric-label">{{ $t('dashboard.indicator.backtest.totalCommission') }}</div>
-                <div class="metric-value">-${{ result.totalCommission ? result.totalCommission.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00' }}</div>
+                <div class="metric-value">-${{ result.totalCommission ? result.totalCommission.toLocaleString('en-US', {
+                  minimumFractionDigits: 2, maximumFractionDigits: 2
+                }) : '0.00' }}</div>
               </div>
             </div>
 
@@ -550,8 +547,7 @@
                 :data-source="result.trades"
                 :pagination="{ pageSize: 5, size: 'small' }"
                 size="small"
-                :scroll="{ x: 600 }"
-              >
+                :scroll="{ x: 600 }">
                 <template slot="type" slot-scope="text">
                   <a-tag :color="getTradeTypeColor(text)">
                     {{ getTradeTypeText(text) }}
@@ -559,7 +555,8 @@
                 </template>
                 <template slot="balance" slot-scope="text">
                   <span style="color: #1890ff; font-weight: 500;">
-                    ${{ text ? text.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '--' }}
+                    ${{ text ? text.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) :
+                      '--' }}
                   </span>
                 </template>
                 <template slot="profit" slot-scope="text">
@@ -611,20 +608,36 @@
                 </a-select>
               </a-form-item>
               <a-form-item>
-                <a-button icon="upload" @click="handleImportParams" style="margin-right: 8px">{{ $t('dashboard.indicator.backtest.importConfig') || 'Import Config' }}</a-button>
+                <a-button icon="upload" @click="handleImportParams" style="margin-right: 8px">{{
+                  $t('dashboard.indicator.backtest.importConfig') || 'Import Config' }}</a-button>
               </a-form-item>
               <a-form-item>
-                <a-button type="primary" :loading="agent.loading || agent.status === 'running'" @click="handleAgentStart">
-                  {{ agent.status === 'running' ? ($t('dashboard.indicator.backtest.running') || 'Running...') : ($t('dashboard.indicator.backtest.startOpt') || 'Start Optimization') }}
+                <a-button
+                  type="primary"
+                  :loading="agent.loading || agent.status === 'running'"
+                  @click="handleAgentStart">
+                  {{ agent.status === 'running' ? ($t('dashboard.indicator.backtest.running') || 'Running...') :
+                    ($t('dashboard.indicator.backtest.startOpt') || 'Start Optimization') }}
                 </a-button>
-                <a-button v-if="agent.status === 'running'" type="danger" style="margin-left: 8px" @click="handleAgentControl('stop')">{{ $t('dashboard.indicator.backtest.stop') || 'Stop' }}</a-button>
+                <a-button
+                  v-if="agent.status === 'running'"
+                  type="danger"
+                  style="margin-left: 8px"
+                  @click="handleAgentControl('stop')">{{ $t('dashboard.indicator.backtest.stop') || 'Stop' }}</a-button>
                 <a-divider type="vertical" />
-                <a-button v-if="['completed', 'cancelled'].includes(agent.status) && agent.bestResult" icon="download" @click="exportAgentBestConfig">{{ $t('dashboard.indicator.backtest.exportBest') || '导出最佳配置' }}</a-button>
+                <a-button
+                  v-if="['completed', 'cancelled'].includes(agent.status) && agent.bestResult"
+                  icon="download"
+                  @click="exportAgentBestConfig">{{ $t('dashboard.indicator.backtest.exportBest') || '导出最佳配置'
+                  }}</a-button>
               </a-form-item>
             </a-form>
 
             <!-- Imported Config Display -->
-            <div v-if="agent.importedConfig" class="imported-config-card" style="background:#e6f7ff; border:1px solid #91d5ff; padding:12px; margin-bottom:16px; border-radius:4px;">
+            <div
+              v-if="agent.importedConfig"
+              class="imported-config-card"
+              style="background:#e6f7ff; border:1px solid #91d5ff; padding:12px; margin-bottom:16px; border-radius:4px;">
               <strong>📋 已导入配置</strong>
               <div style="margin-top:8px; font-size:12px;">
                 <a-row :gutter="8">
@@ -655,17 +668,23 @@
             <!-- Progress -->
             <div v-if="agent.jobId" style="margin-bottom: 16px;">
               <div style="display:flex; justify-content:space-between; margin-bottom: 8px;">
-                <span>Status: <a-tag :color="agent.status === 'running' ? 'blue' : agent.status === 'completed' ? 'green' : 'default'">{{ agent.status }}</a-tag></span>
+                <span>Status: <a-tag
+                  :color="agent.status === 'running' ? 'blue' : agent.status === 'completed' ? 'green' : 'default'">{{
+                  agent.status }}</a-tag></span>
                 <span>Iteration: {{ agent.currentIteration }} / {{ agent.maxIterations }}</span>
               </div>
               <a-progress :percent="Math.floor((agent.currentIteration / agent.maxIterations) * 100)" status="active" />
             </div>
 
             <!-- Best Result -->
-            <div v-if="agent.bestResult" class="best-result-card" style="background:#f6ffed; border:1px solid #b7eb8f; padding:12px; margin-bottom:16px; border-radius:4px;">
+            <div
+              v-if="agent.bestResult"
+              class="best-result-card"
+              style="background:#f6ffed; border:1px solid #b7eb8f; padding:12px; margin-bottom:16px; border-radius:4px;">
               <strong>🏆 Best Result So Far:</strong>
               <div style="margin-top:8px;">
-                <a-tag color="green">Total Return: {{ (agent.bestResult.metrics.totalReturn * 100).toFixed(2) }}%</a-tag>
+                <a-tag color="green">Total Return: {{ (agent.bestResult.metrics.totalReturn * 100).toFixed(2)
+                }}%</a-tag>
                 <a-tag color="blue">Sharpe: {{ (agent.bestResult.metrics.sharpeRatio || 0).toFixed(2) }}</a-tag>
                 <a-tag>Win Rate: {{ (agent.bestResult.metrics.winRate * 100).toFixed(2) }}%</a-tag>
               </div>
@@ -675,9 +694,13 @@
             </div>
 
             <!-- Logs -->
-            <div class="agent-logs" style="background:#1e1e1e; color:#eee; padding:12px; height:300px; overflow-y:auto; font-family:monospace; font-size:12px; border-radius:4px;">
+            <div
+              class="agent-logs"
+              style="background:#1e1e1e; color:#eee; padding:12px; height:300px; overflow-y:auto; font-family:monospace; font-size:12px; border-radius:4px;">
               <div v-for="(log, index) in agent.logs" :key="index">{{ log }}</div>
-              <div v-if="agent.logs.length === 0" style="color:#666; text-align:center; margin-top:100px;">Waiting for logs...</div>
+              <div v-if="agent.logs.length === 0" style="color:#666; text-align:center; margin-top:100px;">Waiting for
+                logs...
+              </div>
             </div>
           </div>
         </a-tab-pane>
@@ -687,7 +710,8 @@
     <template slot="footer">
       <div style="display:flex; justify-content: space-between; align-items:center; width: 100%;">
         <div>
-          <a-button v-if="activeTab === 'manual' && currentStep > 0" :disabled="loading" @click="handlePrev">{{ $t('dashboard.indicator.backtest.prev') }}</a-button>
+          <a-button v-if="activeTab === 'manual' && currentStep > 0" :disabled="loading" @click="handlePrev">{{
+            $t('dashboard.indicator.backtest.prev') }}</a-button>
         </div>
         <div>
           <a-button :disabled="loading" @click="handleCancel">{{ $t('dashboard.indicator.backtest.close') }}</a-button>
@@ -698,24 +722,13 @@
               type="primary"
               style="margin-left: 8px;"
               :disabled="loading"
-              @click="handleNext"
-            >{{ $t('dashboard.indicator.backtest.next') }}</a-button>
+              @click="handleNext">{{ $t('dashboard.indicator.backtest.next') }}</a-button>
 
             <!-- Import/Export Buttons -->
-            <a-button
-              v-if="currentStep === 0"
-              icon="upload"
-              style="margin-left: 8px;"
-              @click="handleImportParams"
-            >
+            <a-button v-if="currentStep === 0" icon="upload" style="margin-left: 8px;" @click="handleImportParams">
               {{ $t('dashboard.indicator.backtest.importConfig') || 'Import Config' }}
             </a-button>
-            <a-button
-              v-if="currentStep === 0"
-              icon="download"
-              style="margin-left: 8px;"
-              @click="handleExportParams"
-            >
+            <a-button v-if="currentStep === 0" icon="download" style="margin-left: 8px;" @click="handleExportParams">
               {{ $t('dashboard.indicator.backtest.exportConfig') || 'Export Config' }}
             </a-button>
 
@@ -724,26 +737,18 @@
               type="primary"
               style="margin-left: 8px;"
               :loading="loading"
-              @click="handleRunBacktest"
-            >{{ $t('dashboard.indicator.backtest.run') }}</a-button>
+              @click="handleRunBacktest">{{ $t('dashboard.indicator.backtest.run') }}</a-button>
             <a-button
               v-if="currentStep > 1"
               type="primary"
               style="margin-left: 8px;"
               :disabled="loading"
-              @click="handleRerun"
-            >{{ $t('dashboard.indicator.backtest.rerun') }}</a-button>
+              @click="handleRerun">{{ $t('dashboard.indicator.backtest.rerun') }}</a-button>
           </template>
         </div>
       </div>
       <!-- Common File Input -->
-      <input
-        type="file"
-        ref="fileInput"
-        accept=".json"
-        style="display: none"
-        @change="onFileSelected"
-      />
+      <input type="file" ref="fileInput" accept=".json" style="display: none" @change="onFileSelected" />
     </template>
   </a-modal>
 </template>
@@ -1248,9 +1253,10 @@ export default {
     },
     formatPercent (value) {
       if (value === null || value === undefined) return '--'
-      // 后端返回的已经是百分比数值（如59.34表示59.34%），不需要再乘100
+      // 后端返回的是小数格式（如0.13表示13%），需要乘以100
+      const pctValue = value * 100
       const sign = value >= 0 ? '+' : ''
-      return `${sign}${value.toFixed(2)}%`
+      return `${sign}${pctValue.toFixed(2)}%`
     },
     formatMoney (value) {
       if (value === null || value === undefined) return '--'
@@ -1324,19 +1330,19 @@ export default {
       document.body.appendChild(script)
     },
     doExportConfig (data) {
-       const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-       const filename = `backtest_config_${dateStr}.json`
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+      const filename = `backtest_config_${dateStr}.json`
 
-       this.ensureIOUtils(() => {
-         if (window.BacktestUtils && window.BacktestUtils.exportConfig) {
-           const success = window.BacktestUtils.exportConfig(data, filename)
-           if (!success) {
-             this.$message.error(this.$t('dashboard.indicator.backtest.exportFailed') || 'Export failed')
-           }
-         } else {
-           this.$message.error('IO Utils not initialized')
-         }
-       })
+      this.ensureIOUtils(() => {
+        if (window.BacktestUtils && window.BacktestUtils.exportConfig) {
+          const success = window.BacktestUtils.exportConfig(data, filename)
+          if (!success) {
+            this.$message.error(this.$t('dashboard.indicator.backtest.exportFailed') || 'Export failed')
+          }
+        } else {
+          this.$message.error('IO Utils not initialized')
+        }
+      })
     },
     doImportConfig (file, successCallback) {
       this.ensureIOUtils(() => {
@@ -1396,56 +1402,77 @@ export default {
       if (!file) return
 
       this.doImportConfig(file, (data) => {
-         try {
-             // Restore UI state
-             const uiState = data._uiState || {}
-             delete data._uiState
+        try {
+          // Restore UI state
+          const uiState = data._uiState || {}
+          delete data._uiState
 
-             // 1. Sync UI Flags
-             if (uiState.trailingEnabledUi !== undefined) {
-                 this.trailingEnabledUi = uiState.trailingEnabledUi
-             } else if (data.trailingEnabled !== undefined) {
-                 // Fallback: infer from data if _uiState missing
-                 this.trailingEnabledUi = !!data.trailingEnabled
-             }
-
-             if (uiState.step1CollapseKeys) this.step1CollapseKeys = uiState.step1CollapseKeys
-             if (uiState.entryPctMaxUi) this.entryPctMaxUi = uiState.entryPctMaxUi
-             if (uiState.selectedDatePreset) this.selectedDatePreset = uiState.selectedDatePreset
-             if (uiState.selectedTimeframe) this.selectedTimeframe = uiState.selectedTimeframe
-             if (uiState.precisionInfo) this.precisionInfo = uiState.precisionInfo
-
-             // Restore Dates
-             if (data.startDate) data.startDate = moment(data.startDate)
-             if (data.endDate) data.endDate = moment(data.endDate)
-
-             // 2. Wait for UI to render (v-if fields) then set values
-             this.$nextTick(() => {
-                 this.form.setFieldsValue(data)
-                 this.$message.success(this.$t('dashboard.indicator.backtest.importSuccess') || 'Configuration loaded')
-
-                 // Reactivity & Defaults
-                 this.recalcEntryPctMaxUi()
-                 if (data.startDate && data.endDate) {
-                    this.fetchPrecisionInfo(data.startDate, data.endDate)
-                 }
-
-                 // Save imported config for AI tab display
-                 this.agent.importedConfig = { ...data }
-
-                 // Format dates
-                 if (data.startDate) {
-                    this.agent.importedConfig.startDate = moment(data.startDate).format('YYYY-MM-DD')
-                 }
-                 if (data.endDate) {
-                    this.agent.importedConfig.endDate = moment(data.endDate).format('YYYY-MM-DD')
-                 }
-             })
-          } catch (err) {
-             console.error(err)
-             this.$message.error('Error applying configuration')
+          // 1. Sync UI Flags
+          if (uiState.trailingEnabledUi !== undefined) {
+            this.trailingEnabledUi = uiState.trailingEnabledUi
+          } else if (data.trailingEnabled !== undefined) {
+            // Fallback: infer from data if _uiState missing
+            this.trailingEnabledUi = !!data.trailingEnabled
           }
-       })
+
+          if (uiState.step1CollapseKeys) this.step1CollapseKeys = uiState.step1CollapseKeys
+          if (uiState.entryPctMaxUi) this.entryPctMaxUi = uiState.entryPctMaxUi
+          if (uiState.selectedDatePreset) this.selectedDatePreset = uiState.selectedDatePreset
+          if (uiState.selectedTimeframe) this.selectedTimeframe = uiState.selectedTimeframe
+          if (uiState.precisionInfo) this.precisionInfo = uiState.precisionInfo
+
+          // Restore Dates
+          if (data.startDate) data.startDate = moment(data.startDate)
+          if (data.endDate) data.endDate = moment(data.endDate)
+
+          // Convert decimal percentages to integer percentages (导入时可能是0-1范围的小数)
+          // 需要转换的百分比参数列表
+          const percentageKeys = [
+            'stopLossPct', 'takeProfitPct',
+            'trailingStopPct', 'trailingActivationPct',
+            'dcaAddStepPct', 'dcaAddSizePct',
+            'trendAddStepPct', 'trendAddSizePct',
+            'trendReduceStepPct', 'trendReduceSizePct',
+            'adverseReduceStepPct', 'adverseReduceSizePct'
+          ]
+
+          percentageKeys.forEach(key => {
+            if (data[key] !== undefined && data[key] !== null) {
+              const val = parseFloat(data[key])
+              // 如果值在0-1之间（小数格式），转换为百分比
+              if (val > 0 && val < 1) {
+                data[key] = val * 100
+              }
+            }
+          })
+
+          // 2. Wait for UI to render (v-if fields) then set values
+          this.$nextTick(() => {
+            this.form.setFieldsValue(data)
+            this.$message.success(this.$t('dashboard.indicator.backtest.importSuccess') || 'Configuration loaded')
+
+            // Reactivity & Defaults
+            this.recalcEntryPctMaxUi()
+            if (data.startDate && data.endDate) {
+              this.fetchPrecisionInfo(data.startDate, data.endDate)
+            }
+
+            // Save imported config for AI tab display
+            this.agent.importedConfig = { ...data }
+
+            // Format dates
+            if (data.startDate) {
+              this.agent.importedConfig.startDate = moment(data.startDate).format('YYYY-MM-DD')
+            }
+            if (data.endDate) {
+              this.agent.importedConfig.endDate = moment(data.endDate).format('YYYY-MM-DD')
+            }
+          })
+        } catch (err) {
+          console.error(err)
+          this.$message.error('Error applying configuration')
+        }
+      })
 
       e.target.value = ''
     },
@@ -1714,48 +1741,48 @@ export default {
 
         // Initial strategy config (Baseline)
         const config = {
-           // Base Context
-           userid: this.userId || 1,
-           indicatorId: this.indicator.id,
-           symbol: this.symbol,
-           market: this.market,
-           timeframe: this.selectedTimeframe || this.timeframe,
-           startDate: values.startDate.format('YYYY-MM-DD'),
-           endDate: values.endDate.format('YYYY-MM-DD'),
-           initialCapital: values.initialCapital,
-           commission: pct(values.commission || 0),
-           slippage: pct(values.slippage || 0),
-           leverage: values.leverage || 1,
-           tradeDirection: values.tradeDirection || 'long',
-           enableMtf: this.market && this.market.toLowerCase() === 'crypto',
+          // Base Context
+          userid: this.userId || 1,
+          indicatorId: this.indicator.id,
+          symbol: this.symbol,
+          market: this.market,
+          timeframe: this.selectedTimeframe || this.timeframe,
+          startDate: values.startDate.format('YYYY-MM-DD'),
+          endDate: values.endDate.format('YYYY-MM-DD'),
+          initialCapital: values.initialCapital,
+          commission: pct(values.commission || 0),
+          slippage: pct(values.slippage || 0),
+          leverage: values.leverage || 1,
+          tradeDirection: values.tradeDirection || 'long',
+          enableMtf: this.market && this.market.toLowerCase() === 'crypto',
 
-           // Strategy Params (current UI values as baseline)
-           stopLossPct: pct(allValues.stopLossPct),
-           takeProfitPct: pct(allValues.takeProfitPct),
-           trailingEnabled: !!allValues.trailingEnabled,
-           trailingStopPct: pct(allValues.trailingStopPct),
-           trailingActivationPct: pct(allValues.trailingActivationPct),
+          // Strategy Params (current UI values as baseline)
+          stopLossPct: pct(allValues.stopLossPct),
+          takeProfitPct: pct(allValues.takeProfitPct),
+          trailingEnabled: !!allValues.trailingEnabled,
+          trailingStopPct: pct(allValues.trailingStopPct),
+          trailingActivationPct: pct(allValues.trailingActivationPct),
 
-           // Position Scaling Parameters
-           trendAddEnabled: !!allValues.trendAddEnabled,
-           dcaAddEnabled: !!allValues.dcaAddEnabled,
-           trendAddStepPct: pct(allValues.trendAddStepPct),
-           dcaAddStepPct: pct(allValues.dcaAddStepPct),
-           trendAddSizePct: pct(allValues.trendAddSizePct),
-           dcaAddSizePct: pct(allValues.dcaAddSizePct),
-           trendAddMaxTimes: Number(allValues.trendAddMaxTimes || 0),
-           dcaAddMaxTimes: Number(allValues.dcaAddMaxTimes || 0),
+          // Position Scaling Parameters
+          trendAddEnabled: !!allValues.trendAddEnabled,
+          dcaAddEnabled: !!allValues.dcaAddEnabled,
+          trendAddStepPct: pct(allValues.trendAddStepPct),
+          dcaAddStepPct: pct(allValues.dcaAddStepPct),
+          trendAddSizePct: pct(allValues.trendAddSizePct),
+          dcaAddSizePct: pct(allValues.dcaAddSizePct),
+          trendAddMaxTimes: Number(allValues.trendAddMaxTimes || 0),
+          dcaAddMaxTimes: Number(allValues.dcaAddMaxTimes || 0),
 
-           trendReduceEnabled: !!allValues.trendReduceEnabled,
-           adverseReduceEnabled: !!allValues.adverseReduceEnabled,
-           trendReduceStepPct: pct(allValues.trendReduceStepPct),
-           adverseReduceStepPct: pct(allValues.adverseReduceStepPct),
-           trendReduceSizePct: pct(allValues.trendReduceSizePct),
-           adverseReduceSizePct: pct(allValues.adverseReduceSizePct),
-           trendReduceMaxTimes: Number(allValues.trendReduceMaxTimes || 0),
-           adverseReduceMaxTimes: Number(allValues.adverseReduceMaxTimes || 0),
+          trendReduceEnabled: !!allValues.trendReduceEnabled,
+          adverseReduceEnabled: !!allValues.adverseReduceEnabled,
+          trendReduceStepPct: pct(allValues.trendReduceStepPct),
+          adverseReduceStepPct: pct(allValues.adverseReduceStepPct),
+          trendReduceSizePct: pct(allValues.trendReduceSizePct),
+          adverseReduceSizePct: pct(allValues.adverseReduceSizePct),
+          trendReduceMaxTimes: Number(allValues.trendReduceMaxTimes || 0),
+          adverseReduceMaxTimes: Number(allValues.adverseReduceMaxTimes || 0),
 
-           entryPct: pct(allValues.entryPct || 100)
+          entryPct: pct(allValues.entryPct || 100)
         }
 
         this.agent.loading = true
@@ -1765,21 +1792,21 @@ export default {
 
         try {
           const res = await startAgentOptimization({
-             config: config,
-             strategy_code: this.code || (this.indicator && this.indicator.code) || '',
-             target_metric: this.agent.config.targetMetric,
-             max_iterations: this.agent.config.maxIterations,
-             model: this.agent.config.model
+            config: config,
+            strategy_code: this.code || (this.indicator && this.indicator.code) || '',
+            target_metric: this.agent.config.targetMetric,
+            max_iterations: this.agent.config.maxIterations,
+            model: this.agent.config.model
           })
 
           if (res.job_id) {
-             this.agent.jobId = res.job_id
-             this.agent.status = 'running'
-             this.startAgentPolling()
-             this.$message.success('Optimization started')
+            this.agent.jobId = res.job_id
+            this.agent.status = 'running'
+            this.startAgentPolling()
+            this.$message.success('Optimization started')
           } else {
-             this.$message.error('Failed to start optimization')
-             this.agent.status = 'error'
+            this.$message.error('Failed to start optimization')
+            this.agent.status = 'error'
           }
         } catch (e) {
           console.error(e)
@@ -1792,154 +1819,176 @@ export default {
     },
 
     async handleAgentControl (action) {
-       if (!this.agent.jobId) return
-       try {
-         await controlAgentJob(this.agent.jobId, action)
-         if (action === 'stop') {
-            this.stopAgentPolling()
-            this.agent.status = 'cancelled'
-         }
-         this.$message.success(`Job ${action} successful`)
-       } catch (e) {
-         this.$message.error(`Failed to ${action} job`)
-       }
+      if (!this.agent.jobId) return
+      try {
+        await controlAgentJob(this.agent.jobId, action)
+        if (action === 'stop') {
+          this.stopAgentPolling()
+          this.agent.status = 'cancelled'
+        }
+        this.$message.success(`Job ${action} successful`)
+      } catch (e) {
+        this.$message.error(`Failed to ${action} job`)
+      }
     },
 
     startAgentPolling () {
-       if (this.agentTimer) clearInterval(this.agentTimer)
-       this.agentTimer = setInterval(this.pollAgentStatus, 2000)
+      if (this.agentTimer) clearInterval(this.agentTimer)
+      this.agentTimer = setInterval(this.pollAgentStatus, 2000)
     },
 
     stopAgentPolling () {
-       if (this.agentTimer) {
-         clearInterval(this.agentTimer)
-         this.agentTimer = null
-       }
+      if (this.agentTimer) {
+        clearInterval(this.agentTimer)
+        this.agentTimer = null
+      }
     },
 
     async pollAgentStatus () {
-       if (!this.agent.jobId) return
-       try {
-         const res = await getAgentJobStatus(this.agent.jobId)
-         if (res && !res.error) {
-            this.agent.status = res.status
-            this.agent.currentIteration = res.current_iteration
-            this.agent.maxIterations = res.max_iterations
-            this.agent.logs = res.logs || []
+      if (!this.agent.jobId) return
+      try {
+        const res = await getAgentJobStatus(this.agent.jobId)
+        if (res && !res.error) {
+          this.agent.status = res.status
+          this.agent.currentIteration = res.current_iteration
+          this.agent.maxIterations = res.max_iterations
+          this.agent.logs = res.logs || []
 
-            if (res.best_result) {
-               this.agent.bestResult = res.best_result
-            }
+          if (res.best_result) {
+            this.agent.bestResult = res.best_result
+          }
 
-            if (['completed', 'cancelled', 'failed'].includes(res.status)) {
-               this.stopAgentPolling()
-               if (res.status === 'completed') {
-                  this.$message.success('Optimization Completed!')
-               }
+          if (['completed', 'cancelled', 'failed'].includes(res.status)) {
+            this.stopAgentPolling()
+            if (res.status === 'completed') {
+              this.$message.success('Optimization Completed!')
             }
-         }
-       } catch (e) {
-         console.error('Polling error', e)
-       }
+          }
+        }
+      } catch (e) {
+        console.error('Polling error', e)
+      }
     },
 
     exportAgentBestConfig () {
-       if (!this.agent.bestResult || !this.agent.bestResult.params) {
-           this.$message.warning('暂无最佳配置可导出')
-           return
-       }
+      if (!this.agent.bestResult || !this.agent.bestResult.params) {
+        this.$message.warning('暂无最佳配置可导出')
+        return
+      }
 
-       const p = this.agent.bestResult.params
+      const p = this.agent.bestResult.params
 
-       // 1. Filter out strategy params and metadata, keep only backtest config params
-       const strategyParamKeys = ['rsi_len', 'pivot_window', 'vol_ma_len', 'ob_threshold', 'os_threshold']
-       const metadataKeys = ['indicatorId', 'userid', 'symbol', 'market', 'timeframe', 'enableMtf']
-       const excludeKeys = [...strategyParamKeys, ...metadataKeys]
+      // 1. Filter out strategy params and metadata, keep only backtest config params
+      const strategyParamKeys = ['rsi_len', 'pivot_window', 'vol_ma_len', 'ob_threshold', 'os_threshold']
+      const metadataKeys = ['indicatorId', 'userid', 'symbol', 'market', 'timeframe', 'enableMtf']
+      const excludeKeys = [...strategyParamKeys, ...metadataKeys]
 
-       const exportData = {}
-       Object.keys(p).forEach(key => {
-           if (!excludeKeys.includes(key)) {
-               exportData[key] = p[key]
-           }
-       })
+      const exportData = {}
+      Object.keys(p).forEach(key => {
+        if (!excludeKeys.includes(key)) {
+          exportData[key] = p[key]
+        }
+      })
 
-       // Convert dates to strings if needed
-       if (exportData.startDate && typeof exportData.startDate === 'object') {
-           exportData.startDate = moment(exportData.startDate).format('YYYY-MM-DD')
-       }
-       if (exportData.endDate && typeof exportData.endDate === 'object') {
-           exportData.endDate = moment(exportData.endDate).format('YYYY-MM-DD')
-       }
+      // 2. Convert decimal percentages to integer percentages (AI返回的可能是0-1范围的小数)
+      // 需要转换的百分比参数列表
+      const percentageKeys = [
+        'stopLossPct', 'takeProfitPct',
+        'dcaAddSizePct', 'dcaAddStepPct',
+        'trendAddSizePct', 'trendAddStepPct',
+        'trendReduceSizePct', 'trendReduceStepPct',
+        'adverseReduceSizePct', 'adverseReduceStepPct',
+        'trailingStopPct', 'trailingActivationPct',
+        'entryPct'
+      ]
 
-       // Add _uiState to match standard config format
-       exportData._uiState = {
-           trailingEnabledUi: !!exportData.trailingEnabled,
-           step1CollapseKeys: this.step1CollapseKeys || ['risk'],
-           entryPctMaxUi: 100,
-           selectedDatePreset: this.selectedDatePreset || '30d',
-           selectedTimeframe: this.selectedTimeframe || '5m',
-           precisionInfo: this.precisionInfo || null
-       }
+      percentageKeys.forEach(key => {
+        if (exportData[key] !== undefined && exportData[key] !== null) {
+          const val = parseFloat(exportData[key])
+          // 如果值在0-1之间（小数格式），转换为百分比
+          if (val > 0 && val < 1) {
+            exportData[key] = val * 100
+          }
+        }
+      })
 
-       // Export config file
-       try {
-           this.doExportConfig(exportData)
-           this.$message.success('最佳配置已导出')
-       } catch (e) {
-           console.error(e)
-           this.$message.error('导出配置失败')
-           return
-       }
+      // Convert dates to strings if needed
+      if (exportData.startDate && typeof exportData.startDate === 'object') {
+        exportData.startDate = moment(exportData.startDate).format('YYYY-MM-DD')
+      }
+      if (exportData.endDate && typeof exportData.endDate === 'object') {
+        exportData.endDate = moment(exportData.endDate).format('YYYY-MM-DD')
+      }
 
-       // 2. Ask to update source code (only for strategy params)
-       if (this.indicator && this.indicator.id) {
-           const strategyParams = {}
-           strategyParamKeys.forEach(key => {
-               if (p[key] !== undefined) {
-                   strategyParams[key] = p[key]
-               }
-           })
+      // Add _uiState to match standard config format
+      exportData._uiState = {
+        trailingEnabledUi: !!exportData.trailingEnabled,
+        step1CollapseKeys: this.step1CollapseKeys || ['risk'],
+        entryPctMaxUi: 100,
+        selectedDatePreset: this.selectedDatePreset || '30d',
+        selectedTimeframe: this.selectedTimeframe || '5m',
+        precisionInfo: this.precisionInfo || null
+      }
 
-           // Only show dialog if there are strategy params to save
-           if (Object.keys(strategyParams).length > 0) {
-               this.$confirm({
-                   title: this.$t('dashboard.indicator.backtest.saveParamsTitle'),
-                   content: this.$t('dashboard.indicator.backtest.saveParamsDesc'),
-                   okText: this.$t('common.confirm'),
-                   cancelText: this.$t('common.cancel'),
-                   onOk: async () => {
-                       const loadingMsg = this.$message.loading('正在更新源代码...', 0)
-                       try {
-                           const res = await request({
-                               url: '/api/indicator/update-strategy-params',
-                               method: 'post',
-                               data: {
-                                   userid: this.userId || 1,
-                                   indicatorId: this.indicator.id,
-                                   params: strategyParams
-                               }
-                           })
-                           loadingMsg()
+      // Export config file
+      try {
+        this.doExportConfig(exportData)
+        this.$message.success('最佳配置已导出')
+      } catch (e) {
+        console.error(e)
+        this.$message.error('导出配置失败')
+        return
+      }
 
-                           if (res.code === 1) {
-                               this.$message.success('源代码已更新')
-                               if (res.data && res.data.code) {
-                                   // Update local code
-                                   this.$emit('update:code', res.data.code)
-                                   if (this.indicator) this.indicator.code = res.data.code
-                               }
-                           } else {
-                               this.$message.error(res.msg || '更新失败')
-                           }
-                       } catch (e) {
-                           loadingMsg()
-                           console.error(e)
-                           this.$message.error('更新失败: ' + (e.message || e))
-                       }
-                   }
-               })
-           }
-       }
+      // 2. Ask to update source code (only for strategy params)
+      if (this.indicator && this.indicator.id) {
+        const strategyParams = {}
+        strategyParamKeys.forEach(key => {
+          if (p[key] !== undefined) {
+            strategyParams[key] = p[key]
+          }
+        })
+
+        // Only show dialog if there are strategy params to save
+        if (Object.keys(strategyParams).length > 0) {
+          this.$confirm({
+            title: this.$t('dashboard.indicator.backtest.saveParamsTitle'),
+            content: this.$t('dashboard.indicator.backtest.saveParamsDesc'),
+            okText: this.$t('common.confirm'),
+            cancelText: this.$t('common.cancel'),
+            onOk: async () => {
+              const loadingMsg = this.$message.loading('正在更新源代码...', 0)
+              try {
+                const res = await request({
+                  url: '/api/indicator/update-strategy-params',
+                  method: 'post',
+                  data: {
+                    userid: this.userId || 1,
+                    indicatorId: this.indicator.id,
+                    params: strategyParams
+                  }
+                })
+                loadingMsg()
+
+                if (res.code === 1) {
+                  this.$message.success('源代码已更新')
+                  if (res.data && res.data.code) {
+                    // Update local code
+                    this.$emit('update:code', res.data.code)
+                    if (this.indicator) this.indicator.code = res.data.code
+                  }
+                } else {
+                  this.$message.error(res.msg || '更新失败')
+                }
+              } catch (e) {
+                loadingMsg()
+                console.error(e)
+                this.$message.error('更新失败: ' + (e.message || e))
+              }
+            }
+          })
+        }
+      }
     }
   },
   beforeDestroy () {
@@ -1965,6 +2014,7 @@ export default {
 :deep(.ant-form-item-control) {
   min-width: 0;
 }
+
 .backtest-modal {
   :deep(.ant-modal-body) {
     padding: 16px;
@@ -2056,6 +2106,7 @@ export default {
 
   &.positive {
     background: linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%);
+
     .metric-value {
       color: #52c41a;
     }
@@ -2063,6 +2114,7 @@ export default {
 
   &.negative {
     background: linear-gradient(135deg, #fff2f0 0%, #ffccc7 100%);
+
     .metric-value {
       color: #f5222d;
     }
@@ -2147,15 +2199,43 @@ export default {
     animation: barPulse 1.2s ease-in-out infinite;
   }
 
-  .bar1 { height: 20px; animation-delay: 0s; }
-  .bar2 { height: 35px; animation-delay: 0.1s; }
-  .bar3 { height: 50px; animation-delay: 0.2s; }
-  .bar4 { height: 35px; animation-delay: 0.3s; }
-  .bar5 { height: 20px; animation-delay: 0.4s; }
+  .bar1 {
+    height: 20px;
+    animation-delay: 0s;
+  }
+
+  .bar2 {
+    height: 35px;
+    animation-delay: 0.1s;
+  }
+
+  .bar3 {
+    height: 50px;
+    animation-delay: 0.2s;
+  }
+
+  .bar4 {
+    height: 35px;
+    animation-delay: 0.3s;
+  }
+
+  .bar5 {
+    height: 20px;
+    animation-delay: 0.4s;
+  }
 
   @keyframes barPulse {
-    0%, 100% { transform: scaleY(1); opacity: 0.7; }
-    50% { transform: scaleY(1.5); opacity: 1; }
+
+    0%,
+    100% {
+      transform: scaleY(1);
+      opacity: 0.7;
+    }
+
+    50% {
+      transform: scaleY(1.5);
+      opacity: 1;
+    }
   }
 
   .loading-text {
@@ -2172,8 +2252,15 @@ export default {
   }
 
   @keyframes fadeInOut {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; }
+
+    0%,
+    100% {
+      opacity: 0.5;
+    }
+
+    50% {
+      opacity: 1;
+    }
   }
 }
 </style>
