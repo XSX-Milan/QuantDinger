@@ -255,7 +255,7 @@ def add_position():
                 INSERT INTO qd_manual_positions 
                 (user_id, market, symbol, name, side, quantity, entry_price, entry_time, notes, tags, group_name, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-                ON CONFLICT(user_id, market, symbol, side) DO UPDATE SET
+                ON CONFLICT(user_id, market, symbol, side, group_name) DO UPDATE SET
                     name = excluded.name,
                     quantity = excluded.quantity,
                     entry_price = excluded.entry_price,

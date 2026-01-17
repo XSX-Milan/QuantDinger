@@ -438,7 +438,7 @@ CREATE TABLE IF NOT EXISTS qd_manual_positions (
     group_name VARCHAR(100) DEFAULT '',
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(user_id, market, symbol, side)
+    UNIQUE(user_id, market, symbol, side, group_name)
 );
 
 CREATE INDEX IF NOT EXISTS idx_manual_positions_user_id ON qd_manual_positions(user_id);
