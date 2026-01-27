@@ -58,11 +58,6 @@ def create_client(exchange_config: Dict[str, Any], *, market_type: str = "swap")
         mt = "swap"
 
     if exchange_id == "binance":
-        import logging
-        logging.warning(f"FACTORY DEBUG: config keys={list(exchange_config.keys())}")
-        logging.warning(f"FACTORY DEBUG: enableDemoTrading={exchange_config.get('enableDemoTrading')}")
-        logging.warning(f"FACTORY DEBUG: enable_demo_trading={exchange_config.get('enable_demo_trading')}")
-
         # CCXT compatible property: enableDemoTrading
         is_demo = bool(exchange_config.get("enableDemoTrading") or exchange_config.get("enable_demo_trading") or False)
 

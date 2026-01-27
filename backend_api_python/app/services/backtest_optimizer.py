@@ -343,48 +343,47 @@ class BacktestOptimizer:
                    dynamic_params[k] = config[k]
 
         strategy_config = {
-            "params": dynamic_params, # Inject Strategy Params
+            "params": dynamic_params, # Inject Strategy Params (Do NOT convert these, e.g. rsi_len)
             "risk": {
-                "stopLossPct": config.get('stopLossPct', 0),
-                "takeProfitPct": config.get('takeProfitPct', 0),
+                "stopLossPct": float(config.get('stopLossPct', 0)),
+                "takeProfitPct": float(config.get('takeProfitPct', 0)),
                 "trailing": {
                     "enabled": config.get('trailingEnabled', False),
-                    "pct": config.get('trailingStopPct', 0),
-                    "activationPct": config.get('trailingActivationPct', 0),
+                    "pct": float(config.get('trailingStopPct', 0)),
+                    "activationPct": float(config.get('trailingActivationPct', 0)),
                 }
             },
             "position": {
-                "entryPct": config.get('entryPct', 1.0),
+                "entryPct": float(config.get('entryPct', 1.0)), # Expecting 0~1 (e.g. 0.25 for 25%)
             },
             "scale": {
                 "trendAdd": {
                     "enabled": config.get('trendAddEnabled', False),
-                    "stepPct": config.get('trendAddStepPct', 0),
-                    "sizePct": config.get('trendAddSizePct', 0),
+                    "stepPct": float(config.get('trendAddStepPct', 0)),
+                    "sizePct": float(config.get('trendAddSizePct', 0)),
                     "maxTimes": config.get('trendAddMaxTimes', 0),
                 },
                 "dcaAdd": {
                     "enabled": config.get('dcaAddEnabled', False),
-                    "stepPct": config.get('dcaAddStepPct', 0),
-                    "sizePct": config.get('dcaAddSizePct', 0),
+                    "stepPct": float(config.get('dcaAddStepPct', 0)),
+                    "sizePct": float(config.get('dcaAddSizePct', 0)),
                     "maxTimes": config.get('dcaAddMaxTimes', 0),
                 },
                 "trendReduce": {
                     "enabled": config.get('trendReduceEnabled', False),
-                    "stepPct": config.get('trendReduceStepPct', 0),
-                    "sizePct": config.get('trendReduceSizePct', 0),
+                    "stepPct": float(config.get('trendReduceStepPct', 0)),
+                    "sizePct": float(config.get('trendReduceSizePct', 0)),
                     "maxTimes": config.get('trendReduceMaxTimes', 0),
                 },
                 "adverseReduce": {
                     "enabled": config.get('adverseReduceEnabled', False),
-                    "stepPct": config.get('adverseReduceStepPct', 0),
-                    "sizePct": config.get('adverseReduceSizePct', 0),
+                    "stepPct": float(config.get('adverseReduceStepPct', 0)),
+                    "sizePct": float(config.get('adverseReduceSizePct', 0)),
                     "maxTimes": config.get('adverseReduceMaxTimes', 0),
                 }
             }
         }
         
-        # Run Backtest with transformed config
         # Run Backtest with transformed config
         return self.backtest_service.run(
             indicator_code=getattr(job, 'strategy_code_rewritten', job.strategy_code),
@@ -394,7 +393,7 @@ class BacktestOptimizer:
             start_date=start_date,
             end_date=end_date,
             initial_capital=float(config.get('initialCapital', 10000)),
-            commission=float(config.get('commission', 0.001)),
+            commission=float(config.get('commission', 0.0002)), # Default 0.02% -> 0.0002
             slippage=float(config.get('slippage', 0.0)),
             leverage=int(config.get('leverage', 1)),
             trade_direction=config.get('tradeDirection', 'both'),

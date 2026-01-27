@@ -287,12 +287,23 @@ class BinanceFuturesClient(BaseRestClient):
 
         Returns: (total_fee, fee_ccy)
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
         try:
             trades = self.get_user_trades(symbol=symbol, order_id=str(order_id or ""), limit=200)
-        except Exception:
+        except Exception as e:
+            logger.warning(f"get_user_trades failed for order_id={order_id}: {e}")
             trades = []
+        
         if not isinstance(trades, list):
+            logger.warning(f"get_user_trades returned non-list for order_id={order_id}: type={type(trades)}")
             return 0.0, ""
+        
+        logger.info(f"get_fee_for_order: order_id={order_id} trades_count={len(trades)}")
+        # 输出 trades
+        logger.info(f"trades: {trades}")
+        
         total_fee = 0.0
         fee_ccy = ""
         for t in trades:

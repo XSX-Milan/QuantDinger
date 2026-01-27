@@ -1279,6 +1279,33 @@ class BacktestService:
             exec_env = local_vars.copy()
             exec_env['__builtins__'] = safe_builtins
             
+            # --- Parameter Injection (Fix for Manual Backtest) ---
+            # Inject dynamic parameters by modifying code (temporary for this execution).
+            # This aligns Manual Backtest behavior with AI Backtest (which rewrites code).
+            if backtest_params and 'params' in backtest_params and backtest_params['params']:
+                import re
+                for k, v in backtest_params['params'].items():
+                    # We use a safe regex that respects comments and basic assignment
+                    # Pattern: match "variable = something" at start of line or after whitespace
+                    # We replace the value with the injected parameter value
+                    try:
+                        s_val = repr(v)
+                        # Pattern parts:
+                        # 1. Start of line or whitespace + variable name + whitespace + = + whitespace
+                        # 2. Although we could match the value, simpler is to match until comment or newline
+                        # But we must be careful not to break syntax.
+                        # BacktestAgent logic:
+                        # r"(^\s*" + key + r"\s*=\s*)([^#\n]+)"
+                        pattern = rf'(^\s*{re.escape(str(k))}\s*=\s*)([^#\n]+)'
+                        # Use sub checking for existence to avoid unnecessary string ops? No, naive sub is fast enough.
+                        # Only replace the first occurrence? Ideally yes, usually definitions are top-level.
+                        # But parameters might be re-defined? Usually once.
+                        # Use \g<1> to avoid ambiguity if s_val starts with a digit
+                        code = re.sub(pattern, rf'\g<1>{s_val}', code, count=1, flags=re.MULTILINE)
+                    except Exception as e:
+                        logger.warning(f"Failed to inject parameter {k}={v}: {e}")
+            # -----------------------------------------------------
+
             # Pre-execute import statements to ensure np and pd are available
             pre_import_code = """
 import numpy as np
@@ -1313,6 +1340,9 @@ import pandas as pd
             )
             
             if not exec_result['success']:
+                logger.error(f"Indicator logic failed: {exec_result['error']}")
+                # Log the code that failed for debugging
+                logger.error(f"Failed Code Snippet:\n{code[:500]}...")
                 raise RuntimeError(f"Code execution failed: {exec_result['error']}")
             
             # Get the executed df
@@ -3883,7 +3913,7 @@ import pandas as pd
         for value in values:
             if value > peak:
                 peak = value
-            dd = (peak - value) / peak * 100
+            dd = (peak - value) / peak
             if dd > max_dd:
                 max_dd = dd
         

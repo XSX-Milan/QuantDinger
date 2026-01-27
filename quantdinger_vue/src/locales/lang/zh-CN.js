@@ -1152,6 +1152,9 @@ const locale = {
   'trading-assistant.stopStrategy': '停止策略',
   'trading-assistant.editStrategy': '编辑策略',
   'trading-assistant.deleteStrategy': '删除策略',
+  'trading-assistant.exportStrategy': '导出策略',
+  'trading-assistant.importStrategy': '导入策略',
+  'trading-assistant.syncPositions': '同步持仓',
   'trading-assistant.startAll': '全部启动',
   'trading-assistant.stopAll': '全部停止',
   'trading-assistant.deleteAll': '全部删除',
@@ -1333,6 +1336,13 @@ const locale = {
   'trading-assistant.messages.batchDeleteSuccess': '成功删除 {count} 个策略',
   'trading-assistant.messages.batchDeleteFailed': '批量删除策略失败',
   'trading-assistant.messages.batchDeleteConfirm': '确定要删除策略组"{name}"下的 {count} 个策略吗？此操作不可恢复。',
+  'trading-assistant.messages.uploading': '上传中...',
+  'trading-assistant.messages.importSuccess': '导入成功',
+  'trading-assistant.messages.importFailed': '导入失败',
+  'trading-assistant.messages.exportSuccess': '导出成功',
+  'trading-assistant.messages.exportFailed': '导出失败',
+  'trading-assistant.messages.syncSuccess': '同步持仓成功',
+  'trading-assistant.messages.syncFailed': '同步持仓失败',
   'trading-assistant.notify.browser': '浏览器通知',
   'trading-assistant.notify.email': '邮箱',
   'trading-assistant.notify.phone': '短信',
@@ -2093,6 +2103,7 @@ const locale = {
   'portfolio.alerts.deleteConfirm': '确定要删除此预警吗？',
   'portfolio.modal.addAlert': '添加预警',
   'portfolio.modal.editAlert': '编辑预警'
+
 }
 
 export default {

@@ -436,11 +436,177 @@ def get_equity_curve():
             ts = int(r.get('created_at') or time.time())
             curve.append({'time': ts, 'equity': equity})
 
+        # Calculate Unrealized PNL for current positions to add real-time point
+        try:
+            # 1. Get open positions from DB
+            with get_db_connection() as db:
+                cur = db.cursor()
+                cur.execute("SELECT symbol, side, size, entry_price, current_price FROM qd_strategy_positions WHERE strategy_id = ?", (strategy_id,))
+                open_positions = cur.fetchall() or []
+                cur.close()
+            
+            unrealized_pnl = 0.0
+            
+            # 2. Get real-time prices (Optimization: reuse get_positions logic if possible, or just call best-effort)
+            # Fetching prices might be slow, but equity curve is usually loaded once.
+            if open_positions:
+                ds = DataSourceFactory.get_source("Crypto")
+                for pos in open_positions:
+                    sym = pos['symbol']
+                    side = (pos['side'] or '').lower()
+                    size = float(pos['size'] or 0)
+                    entry_price = float(pos['entry_price'] or 0)
+                    
+                    if size > 0:
+                        # Try fetch live price
+                        current_price = float(pos['current_price'] or 0) # Fallback to DB cached
+                        try:
+                            t = ds.get_ticker(sym)
+                            if t and (t.get('last') or t.get('close')):
+                                current_price = float(t.get('last') or t.get('close'))
+                        except:
+                            pass
+                            
+                        # Calc PNL
+                        pnl = 0.0
+                        if 'short' in side:
+                             pnl = (entry_price - current_price) * size
+                        else:
+                             pnl = (current_price - entry_price) * size
+                        unrealized_pnl += pnl
+            
+            # 3. Add current point
+            now_ts = int(time.time())
+            current_equity = equity + unrealized_pnl
+            
+            # If last point is effectively "now", update it, else append
+            if curve and curve[-1]['time'] > now_ts - 60:
+                curve[-1]['equity'] = current_equity
+            else:
+                curve.append({'time': now_ts, 'equity': current_equity})
+
+        except Exception as e:
+            logger.warning(f"Failed to calc unrealized PNL for equity curve: {e}")
+
         return jsonify({'code': 1, 'msg': 'success', 'data': curve})
     except Exception as e:
         logger.error(f"get_equity_curve failed: {str(e)}")
         logger.error(traceback.format_exc())
         return jsonify({'code': 0, 'msg': str(e), 'data': []}), 500
+
+
+@strategy_bp.route('/strategies/sync', methods=['POST'])
+def sync_positions():
+    """
+    强制同步持仓 (Fix Ghost Positions)
+    """
+    try:
+        strategy_id = request.args.get('id', type=int) or (request.get_json(silent=True) or {}).get('id')
+        if not strategy_id:
+            return jsonify({'code': 0, 'msg': 'Missing strategy id'}), 400
+        
+        result = get_strategy_service().sync_strategy_positions(strategy_id)
+        if result['success']:
+             return jsonify({'code': 1, 'msg': result['message'], 'data': result})
+        else:
+             return jsonify({'code': 0, 'msg': result['message'], 'data': result})
+    except Exception as e:
+        logger.error(f"sync_positions failed: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({'code': 0, 'msg': str(e)}), 500
+
+
+@strategy_bp.route('/strategies/export', methods=['GET'])
+def export_strategy():
+    """
+    导出策略配置 (JSON)
+    """
+    try:
+        strategy_id = request.args.get('id', type=int)
+        if not strategy_id:
+            return jsonify({'code': 0, 'msg': 'Missing strategy id'}), 400
+            
+        st = get_strategy_service().get_strategy(strategy_id)
+        if not st:
+            return jsonify({'code': 0, 'msg': 'Strategy not found'}), 404
+            
+        # Remove sensitive/internal fields
+        export_data = {
+            'strategy_name': st.get('strategy_name'),
+            'strategy_type': st.get('strategy_type'),
+            'market_category': st.get('market_category'),
+            'execution_mode': st.get('execution_mode'),
+            'indicator_config': st.get('indicator_config'),
+            'trading_config': st.get('trading_config'),
+            'notification_config': st.get('notification_config'),
+            'ai_model_config': st.get('ai_model_config'),
+            'exported_at': int(time.time())
+        }
+        
+        from flask import make_response
+        import json
+        from urllib.parse import quote
+        
+        json_str = json.dumps(export_data, indent=2, ensure_ascii=False)
+        # Use a safe ASCII filename or URL-encode it
+        # Strategy name might contain Chinese
+        raw_name = st.get('strategy_name', 'export')
+        safe_name = quote(raw_name) 
+        filename = f"strategy_{safe_name}_{int(time.time())}.json"
+        
+        response = make_response(json_str)
+        # Set filename* for UTF-8 compatibility (RFC 5987), though requests/browsers handle url-encoded simple filename too sometimes
+        # Safest for werkzeug: just ensure the string value is latin-1 safe. quote() produces ASCII safe string.
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+        response.headers['Content-Type'] = 'application/json; charset=utf-8'
+        return response
+        
+    except Exception as e:
+        logger.error(f"export_strategy failed: {e}")
+        return jsonify({'code': 0, 'msg': str(e)}), 500
+
+
+@strategy_bp.route('/strategies/import', methods=['POST'])
+def import_strategy():
+    """
+    导入策略配置 (JSON File or Body)
+    """
+    try:
+        data = None
+        # Try file upload
+        if 'file' in request.files:
+            file = request.files['file']
+            if file and file.filename.endswith('.json'):
+                import json
+                try:
+                    content = file.read().decode('utf-8')
+                    data = json.loads(content)
+                except Exception as e:
+                    return jsonify({'code': 0, 'msg': f"Invalid JSON file: {e}"}), 400
+        
+        # Try JSON body if no file
+        if not data:
+            data = request.get_json(silent=True)
+            
+        if not data:
+             return jsonify({'code': 0, 'msg': 'No data provided'}), 400
+             
+        # Create strategy
+        # Append "(Imported)" to name to avoid conflict? Or let user handle?
+        # Let's append timestamp if exists
+        original_name = data.get('strategy_name', 'Imported Strategy')
+        data['strategy_name'] = f"{original_name} (Imported {int(time.time())})"
+        
+        # User ID context
+        data['user_id'] = request.args.get('user_id', type=int) or 1
+        
+        new_id = get_strategy_service().create_strategy(data)
+        
+        return jsonify({'code': 1, 'msg': 'Strategy imported successfully', 'data': {'id': new_id}})
+        
+    except Exception as e:
+        logger.error(f"import_strategy failed: {e}")
+        return jsonify({'code': 0, 'msg': str(e)}), 500
 
 
 

@@ -974,12 +974,20 @@ class TradingExecutor:
                                         market=market_type or 'Crypto',
                                         symbol=symbol,
                                         signal_type=signal_type,
-                                        signal_detail=f"策略: {strategy_name}\n信号: {signal_type}\n价格: {execute_price:.4f}"
+                                        signal_detail=f"策略: {strategy_name}\n信号: {signal_type}\n价格: {execute_price:.4f}\n时间: {datetime.fromtimestamp(now_i).strftime('%Y-%m-%d %H:%M:%S')}"
                                     )
+                                    logger.info(f"Detailed Signal Log [Strategy {strategy_id}]: Type={signal_type}, Price={execute_price}, Size={position_size}, TS={signal_ts}, CurrentPos={current_positions}")
                                 except Exception as link_e:
                                     logger.warning(f"Strategy signal linkage notification failed: {link_e}")
                             else:
+                                fail_reason = f"Execution failed for {signal_type}"
                                 logger.warning(f"Strategy {strategy_id} signal rejected/failed: {signal_type}")
+                                try:
+                                    from app.services.notification_service import send_notification_sync
+                                    fail_msg = f"策略: {strategy_name}\n信号: {signal_type}\n价格: {execute_price:.4f}\n状态: 执行失败/被拒绝"
+                                    send_notification_sync(notification_config, "Signal Execution Failed", fail_msg)
+                                except:
+                                    pass
 
                     # Update positions once per tick.
                     self._update_positions(strategy_id, symbol, current_price)
@@ -993,6 +1001,15 @@ class TradingExecutor:
                     logger.error(f"Strategy {strategy_id} loop error: {str(e)}")
                     logger.error(traceback.format_exc())
                     self._console_print(f"[strategy:{strategy_id}] loop error: {e}")
+                    
+                    # Notify failure
+                    try:
+                        from app.services.notification_service import send_notification_sync
+                        error_msg = f"策略异常 ({strategy_name}): loop error - {str(e)}"
+                        send_notification_sync(notification_config, "Strategy Loop Error", error_msg)
+                    except:
+                        pass
+                        
                     time.sleep(5)
                     
         except Exception as e:

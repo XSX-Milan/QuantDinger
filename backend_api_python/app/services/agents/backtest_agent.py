@@ -198,32 +198,87 @@ Please suggest the next set of parameters to improve {target_metric}."""
 
     def apply_params_to_code(self, code: str, params: Dict[str, Any], model: str = None) -> str:
         """
-        直接替换代码中的参数值（不使用 LLM）
-        使用正则表达式匹配并替换参数赋值语句
+        Update strategy code with new parameters.
+        Hybrid approach:
+        1. Use regex to update EXISTING parameters (preserves comments/formatting).
+        2. Insert NEW parameters after imports (with '# AI Added' comment).
         """
         import re
-        
+
         lines = code.split('\n')
         updated_lines = []
-        
+        replaced_params = set()
+
+        # Phase 1: Regex Replacement
         for line in lines:
             updated_line = line
-            
-            # 对每个参数尝试匹配和替换
             for param_name, param_value in params.items():
-                # 匹配模式：param_name = value  (可选注释)
-                # 捕获：(缩进)(参数名)(=)(旧值)(可选注释)
+                if param_name in replaced_params:
+                    continue
+
+                # Pattern: start_of_line + indent + param_name + spaces + = + spaces + value + (comment)
+                # We use re.escape for the param name to handle any special chars safely
                 pattern = rf'^(\s*){re.escape(param_name)}\s*=\s*(.+?)(\s*#.*)?$'
                 match = re.match(pattern, line)
-                
+
                 if match:
-                    indent = match.group(1)  # 保持原有缩进
-                    comment = match.group(3) or ''  # 保持原有注释
+                    indent = match.group(1)
+                    # Group 2 is the old value, we discard it
+                    comment = match.group(3) or ''
                     
-                    # 构造新的赋值语句
-                    updated_line = f"{indent}{param_name} = {param_value}{comment}"
-                    break  # 一行只替换一次
-            
+                    # Use repr to safely format values (e.g. adds quotes for strings)
+                    formatted_value = repr(param_value)
+                    
+                    updated_line = f"{indent}{param_name} = {formatted_value}{comment}"
+                    replaced_params.add(param_name)
+                    break # Only one replacement per line
+
             updated_lines.append(updated_line)
+
+        # Phase 2: Insert New Parameters
+        new_params = {k: v for k, v in params.items() if k not in replaced_params}
         
+        if new_params:
+            insert_index = 0
+            # Heuristic: Find first line that is NOT an import or empty/comment, 
+            # but usually we want to insert AFTER imports.
+            # State machine: 
+            # 0: Start
+            # 1: Found imports
+            # 2: Found code -> INSERT HERE
+            
+            # Simplified approach: Look for the last import line
+            last_import_index = -1
+            for i, line in enumerate(updated_lines):
+                stripped = line.strip()
+                if stripped.startswith('import ') or stripped.startswith('from '):
+                    last_import_index = i
+            
+            # If imports found, insert after the last one
+            if last_import_index != -1:
+                insert_index = last_import_index + 1
+            else:
+                # No imports, try to insert at top, but skip initial comments/docstrings is better
+                # For now, inserting at 0 is safe enough for simple scripts, 
+                # or maybe after the first docstring?
+                # Let's just stick to 0 or after last import.
+                insert_index = 0
+
+            # Prepare injection lines
+            injection_lines = []
+            
+            # Add a blank line separator if we are inserting after something
+            if insert_index > 0 and insert_index < len(updated_lines) and updated_lines[insert_index-1].strip() != '':
+                 injection_lines.append('')
+            
+            for k, v in new_params.items():
+                injection_lines.append(f"{k} = {repr(v)}  # AI Added")
+            
+            # Add a blank line after our block if needed
+            if insert_index < len(updated_lines) and updated_lines[insert_index].strip() != '':
+                injection_lines.append('')
+                
+            # Insert into the list
+            updated_lines[insert_index:insert_index] = injection_lines
+
         return '\n'.join(updated_lines)

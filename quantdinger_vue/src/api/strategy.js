@@ -17,7 +17,10 @@ const api = {
   trades: '/api/strategies/trades',
   positions: '/api/strategies/positions',
   equityCurve: '/api/strategies/equityCurve',
-  notifications: '/api/strategies/notifications'
+  notifications: '/api/strategies/notifications',
+  importStrategy: '/api/strategies/import',
+  exportStrategy: '/api/strategies/export',
+  syncPositions: '/api/strategies/sync'
 }
 
 /**
@@ -233,5 +236,45 @@ export function getStrategyNotifications (params = {}) {
     url: api.notifications,
     method: 'get',
     params
+  })
+}
+
+/**
+ * 导入策略
+ * @param {FormData} formData - 包含文件的 FormData
+ */
+export function importStrategy (formData) {
+  return request({
+    url: api.importStrategy,
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
+
+/**
+ * 同步策略持仓
+ * @param {number} id - 策略ID
+ */
+export function syncPositions (id) {
+  return request({
+    url: api.syncPositions,
+    method: 'post',
+    params: { id }
+  })
+}
+
+/**
+ * 导出策略配置
+ * @param {number} id - 策略ID
+ */
+export function exportStrategy (id) {
+  return request({
+    url: api.exportStrategy,
+    method: 'get',
+    params: { id },
+    responseType: 'blob'
   })
 }

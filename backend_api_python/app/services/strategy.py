@@ -11,6 +11,9 @@ from app.utils.db import get_db_connection
 
 logger = get_logger(__name__)
 
+from app.services.live_trading.factory import create_client
+from app.services.exchange_execution import resolve_exchange_config
+
 class StrategyService:
     """Strategy service."""
     
@@ -797,7 +800,205 @@ class StrategyService:
         execution_mode = payload.get('execution_mode') or existing.get('execution_mode') or 'signal'
         notification_config = payload.get('notification_config') if payload.get('notification_config') is not None else (existing.get('notification_config') or {})
 
-        indicator_config = payload.get('indicator_config') if payload.get('indicator_config') is not None else (existing.get('indicator_config') or {})
+        return True
+
+    def delete_strategy(self, strategy_id: int) -> bool:
+        """Delete strategy."""
+        try:
+            with get_db_connection() as db:
+                cur = db.cursor()
+                cur.execute("DELETE FROM qd_strategies_trading WHERE id = ?", (strategy_id,))
+                db.commit()
+                cur.close()
+            return True
+        except Exception as e:
+            logger.error(f"delete_strategy failed: {e}")
+            return False
+
+    def sync_strategy_positions(self, strategy_id: int) -> Dict[str, Any]:
+        """
+        Force sync positions from exchange to DB.
+        
+        Logic:
+        1. Fetch strategy config & credentials.
+        2. Connect to exchange.
+        3. Fetch live positions.
+        4. Update DB:
+           - Update existing positions.
+           - Insert new positions.
+           - DELETE positions in DB that are not in exchange (Fix Ghost Position).
+        """
+        try:
+            st = self.get_strategy(strategy_id)
+            if not st:
+                return {'success': False, 'message': 'Strategy not found'}
+            
+            # Resolve config
+            exchange_config = st.get('exchange_config') or {}
+            market_type = st.get('market_type') or 'swap'
+            
+            # Apply credential_id logic if present
+            resolved_cfg = resolve_exchange_config(exchange_config)
+            
+            # Support both camelCase and snake_case
+            ex_id = (resolved_cfg.get('exchange_id') or resolved_cfg.get('exchangeId') or '').strip()
+            if not ex_id:
+                logger.warning(f"Strategy {strategy_id} sync skipped: Missing exchange_id in config (name={st.get('strategy_name')})")
+                return {'success': False, 'message': 'Exchange not configured for this strategy'}
+
+            try:
+                # Connect
+                client = create_client(resolved_cfg, market_type=market_type)
+                
+                # Fetch positions
+                # Note: get_positions might return dict with 'raw' or list directly.
+                # We need standard format: [{'symbol': 'BTC/USDT', 'amount': 0.1, ...}, ...]
+                # Using PendingOrderWorker's approach if possible, but let's try raw client first
+                
+                # Use client-specific normalization logic if available (mirrors PendingOrderWorker logic)
+                raw_positions = client.get_positions()
+            except Exception as e:
+                 logger.error(f"Strategy {strategy_id} sync failed to connect/fetch: {e}")
+                 # Return graceful failure instead of 500
+                 return {'success': False, 'message': f"Exchange error: {str(e)}"}
+            
+            # Normalize
+            active_positions = []
+            
+            # Handle unwrapped 'raw' dict
+            if isinstance(raw_positions, dict) and 'raw' in raw_positions:
+                raw_positions = raw_positions['raw']
+                
+            if not isinstance(raw_positions, list):
+                logger.error(f"Sync failed: get_positions returned {type(raw_positions)}")
+                return {'success': False, 'message': 'Invalid exchange response format'}
+
+            # Helper to normalize symbol/amount
+            def _norm(p):
+                sym = str(p.get('symbol') or '').replace('-', '/').replace('_', '/')
+                amt = float(p.get('amount') or p.get('size') or p.get('positionAmt') or 0.0)
+                entry = float(p.get('entryPrice') or p.get('averageOpenPrice') or 0.0)
+                # Binance specific fields
+                if 'positionAmt' in p:
+                    amt = float(p['positionAmt'])
+                if 'symbol' in p and not '/' in p['symbol']:
+                     # Attempt to format Binance items like BTCUSDT -> BTC/USDT (not perfect but OK for matching)
+                     # Better relies on strategy symbol if single-symbol strategy
+                     pass
+                return sym, amt, entry
+
+            # Collect active exchange positions
+            exchange_pos_map = {} # symbol -> {size, entry_price}
+            
+            for p in raw_positions:
+                sym, amt, entry = _norm(p)
+                if abs(amt) > 0:
+                    # Strategy usually filters by its own symbol, but here we sync ALL to be safe?
+                    # No, only sync symbols relevant to this strategy if possible
+                    # But multi-strategy accounts share positions...
+                    # Current logic: Sync ALL positions that match strategy's symbol(s)
+                    
+                    # Store standard format
+                    # Try to unify symbol format with DB (usually includes slash)
+                    # If exchange returns "BTCUSDT", we match it loosely if simple replace fails
+                    exchange_pos_map[sym] = {'size': amt, 'entry_price': entry, 'raw': p}
+                    # Also store "BTCUSDT" key just in case
+                    exchange_pos_map[sym.replace('/', '')] = {'size': amt, 'entry_price': entry, 'raw': p}
+
+            logger.info(f"Strategy {strategy_id} sync: Exchange has {len(exchange_pos_map)//2} active positions (keys duplicated)")
+
+            # Strategy symbol(s)
+            # If batch strategy, might have list? Currently local supports single symbol per ID usually.
+            target_symbol = st.get('symbol') or (st.get('trading_config') or {}).get('symbol')
+            target_symbols = [target_symbol] if target_symbol else []
+            
+            # If it's a multi-symbol strategy (future proof), maybe check 'symbols' list mechanism
+            # For now, focus on target_symbol. 
+            
+            current_db_positions = []
+            with get_db_connection() as db:
+                cur = db.cursor()
+                cur.execute("SELECT id, symbol, size FROM qd_strategy_positions WHERE strategy_id = ?", (strategy_id,))
+                current_db_positions = cur.fetchall()
+                cur.close()
+            
+            updated_count = 0
+            deleted_count = 0
+            
+            with get_db_connection() as db:
+                cur = db.cursor()
+                
+                # Check each DB position: if not in Exchange, delete it (or set to 0)
+                for db_pos in current_db_positions:
+                    db_sym = db_pos['symbol']
+                    db_id = db_pos['id']
+                    
+                    # Match attempts
+                    match_data = exchange_pos_map.get(db_sym)
+                    if not match_data:
+                        match_data = exchange_pos_map.get(db_sym.replace('/', ''))
+                    
+                    if match_data:
+                        # Update DB with latest size/entry
+                        new_size = match_data['size']
+                        new_entry = match_data['entry_price']
+                        if abs(new_size) < 1e-8:
+                             # Effectively closed
+                             cur.execute("DELETE FROM qd_strategy_positions WHERE id = ?", (db_id,))
+                             deleted_count += 1
+                        else:
+                             cur.execute("""
+                                UPDATE qd_strategy_positions 
+                                SET size = ?, entry_price = ?, updated_at = ? 
+                                WHERE id = ?
+                             """, (new_size, new_entry, int(time.time()), db_id))
+                             updated_count += 1
+                        # Remove from map to track "new" ones
+                        if db_sym in exchange_pos_map: del exchange_pos_map[db_sym]
+                        if db_sym.replace('/', '') in exchange_pos_map: del exchange_pos_map[db_sym.replace('/', '')]
+                    else:
+                        # Exists in DB but NOT in Exchange -> GHOST POSITION -> DELETE
+                        logger.warning(f"Strategy {strategy_id}: Removing ghost position {db_sym} (DB has it, Exchange does not)")
+                        cur.execute("DELETE FROM qd_strategy_positions WHERE id = ?", (db_id,))
+                        deleted_count += 1
+                
+                # If target_symbol matches a remaining exchange position, INSERT it
+                # (Only if we want to auto-discover positions started outside? Maybe risky if not tracking strategy)
+                # For safety: only update/delete existing DB records found above. 
+                # If user wants to "Import" existing position, that's different.
+                # BUT: if strategy opened a position but DB insert failed, we WANT to recover it.
+                # So: if target_symbol is in exchange_pos_map, insert it!
+                
+                if target_symbol:
+                    match_data = exchange_pos_map.get(target_symbol) or exchange_pos_map.get(target_symbol.replace('/', ''))
+                    if match_data and abs(match_data['size']) > 0:
+                        # Insert missing
+                        logger.info(f"Strategy {strategy_id}: Recovering missing position {target_symbol}")
+                        # infer side
+                        side = 'buy' if match_data['size'] > 0 else 'sell' # Spot logic usually buy/sell, Futures Long/Short?
+                        # Normalize side string to 'long'/'short' for futures if possible, or keep 'buy'/'sell'
+                        if market_type == 'swap':
+                            side = 'long' if match_data['size'] > 0 else 'short'
+                        
+                        cur.execute("""
+                            INSERT INTO qd_strategy_positions (strategy_id, symbol, side, size, entry_price, created_at, updated_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """, (strategy_id, target_symbol, side, match_data['size'], match_data['entry_price'], int(time.time()), int(time.time())))
+                        updated_count += 1
+
+                db.commit()
+                cur.close()
+                
+            return {
+                'success': True, 
+                'message': f'Synced: Updated {updated_count}, Removed {deleted_count} stale/ghost positions.',
+                'stats': {'updated': updated_count, 'deleted': deleted_count}
+            }
+            
+        except Exception as e:
+            logger.error(f"sync_strategy_positions failed: {str(e)}")
+            logger.error(traceback.format_exc())
+            return {'success': False, 'message': str(e)}
         trading_config = payload.get('trading_config') if payload.get('trading_config') is not None else (existing.get('trading_config') or {})
         exchange_config = payload.get('exchange_config') if payload.get('exchange_config') is not None else (existing.get('exchange_config') or {})
         ai_model_config = payload.get('ai_model_config') if payload.get('ai_model_config') is not None else (existing.get('ai_model_config') or {})

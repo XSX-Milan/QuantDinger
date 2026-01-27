@@ -634,34 +634,62 @@
             </a-form>
 
             <!-- Imported Config Display -->
-            <div
-              v-if="agent.importedConfig"
-              class="imported-config-card"
-              style="background:#e6f7ff; border:1px solid #91d5ff; padding:12px; margin-bottom:16px; border-radius:4px;">
-              <strong>📋 已导入配置</strong>
-              <div style="margin-top:8px; font-size:12px;">
-                <a-row :gutter="8">
-                  <a-col :span="8" v-if="agent.importedConfig.initialCapital">
-                    <a-tag>初始资金: ${{ agent.importedConfig.initialCapital.toLocaleString() }}</a-tag>
-                  </a-col>
-                  <a-col :span="8" v-if="agent.importedConfig.commission !== undefined">
-                    <a-tag>手续费: {{ (agent.importedConfig.commission * 100).toFixed(2) }}%</a-tag>
-                  </a-col>
-                  <a-col :span="8" v-if="agent.importedConfig.leverage">
-                    <a-tag>杠杆: {{ agent.importedConfig.leverage }}x</a-tag>
-                  </a-col>
-                </a-row>
-                <a-row :gutter="8" style="margin-top:8px;">
-                  <a-col :span="8" v-if="agent.importedConfig.stopLossPct !== undefined">
-                    <a-tag color="red">止损: {{ agent.importedConfig.stopLossPct.toFixed(2) }}%</a-tag>
-                  </a-col>
-                  <a-col :span="8" v-if="agent.importedConfig.takeProfitPct !== undefined">
-                    <a-tag color="green">止盈: {{ agent.importedConfig.takeProfitPct.toFixed(2) }}%</a-tag>
-                  </a-col>
-                  <a-col :span="8" v-if="agent.importedConfig.entryPct !== undefined">
-                    <a-tag color="blue">开仓资金: {{ agent.importedConfig.entryPct.toFixed(2) }}%</a-tag>
-                  </a-col>
-                </a-row>
+            <div v-if="agent.importedConfig" class="imported-config-container">
+              <div class="config-header">
+                <a-icon
+                  type="check-circle"
+                  theme="twoTone"
+                  two-tone-color="#52c41a"
+                  style="margin-right: 6px; font-size: 16px;" />
+                <span class="title">AI 优化配置已导入</span>
+                <span class="subtitle">Imported Configuration</span>
+              </div>
+
+              <div class="config-grid">
+                <!-- Row 1: Capital & Leverage -->
+                <div class="config-card">
+                  <div class="card-label">初始资金 (Capital)</div>
+                  <div class="card-value money">${{ agent.importedConfig.initialCapital ?
+                    agent.importedConfig.initialCapital.toLocaleString() : '--' }}</div>
+                </div>
+                <div class="config-card">
+                  <div class="card-label">杠杆 (Leverage)</div>
+                  <div class="card-value">{{ agent.importedConfig.leverage || 1 }}x</div>
+                </div>
+                <div class="config-card">
+                  <div class="card-label">开仓比例 (Entry)</div>
+                  <div class="card-value blue">{{ agent.importedConfig.entryPct ?
+                    Number(agent.importedConfig.entryPct).toFixed(2) : '0.00' }}%</div>
+                </div>
+
+                <!-- Row 2: Fees -->
+                <div class="config-card">
+                  <div class="card-label">手续费 (Comm.)</div>
+                  <div class="card-value">{{ agent.importedConfig.commission !== undefined ?
+                    Number(agent.importedConfig.commission).toFixed(6) : '0.00' }}%</div>
+                </div>
+                <div class="config-card">
+                  <div class="card-label">滑点 (Slippage)</div>
+                  <div class="card-value">{{ agent.importedConfig.slippage !== undefined ?
+                    Number(agent.importedConfig.slippage).toFixed(6) : '0.00' }}%</div>
+                </div>
+
+                <!-- Row 3: Strategy (Stop/Take) -->
+                <div class="config-card">
+                  <div class="card-label">止损 (Stop Loss)</div>
+                  <div class="card-value red">{{ agent.importedConfig.stopLossPct !== undefined ?
+                    Number(agent.importedConfig.stopLossPct).toFixed(2) : '0.00' }}%</div>
+                </div>
+                <div class="config-card">
+                  <div class="card-label">止盈 (Take Profit)</div>
+                  <div class="card-value green">{{ agent.importedConfig.takeProfitPct !== undefined ?
+                    Number(agent.importedConfig.takeProfitPct).toFixed(2) : '0.00' }}%</div>
+                </div>
+                <!-- Trail -->
+                <div class="config-card" v-if="agent.importedConfig.trailingStopPct">
+                  <div class="card-label">追踪止损 (Trail)</div>
+                  <div class="card-value orange">{{ Number(agent.importedConfig.trailingStopPct).toFixed(2) }}%</div>
+                </div>
               </div>
             </div>
 
@@ -1428,6 +1456,7 @@ export default {
           // Convert decimal percentages to integer percentages (导入时可能是0-1范围的小数)
           // 需要转换的百分比参数列表
           const percentageKeys = [
+            'commission', 'slippage',
             'stopLossPct', 'takeProfitPct',
             'trailingStopPct', 'trailingActivationPct',
             'dcaAddStepPct', 'dcaAddSizePct',
@@ -1509,7 +1538,20 @@ export default {
 
         try {
           const pct = (v) => Number(v || 0) / 100
+
+          // Extract dynamic parameters (custom indicator params)
+          const dynamicParams = {}
+          if (this.indicator && this.indicator.params && Array.isArray(this.indicator.params)) {
+            this.indicator.params.forEach(p => {
+              // p.name is the variable name (e.g. 'rsi_len')
+              if (allValues[p.name] !== undefined) {
+                dynamicParams[p.name] = allValues[p.name]
+              }
+            })
+          }
+
           const strategyConfig = {
+            params: dynamicParams,
             risk: {
               stopLossPct: pct(allValues.stopLossPct),
               takeProfitPct: pct(allValues.takeProfitPct),
@@ -1878,20 +1920,41 @@ export default {
 
       const p = this.agent.bestResult.params
 
-      // 1. Filter out strategy params and metadata, keep only backtest config params
-      const strategyParamKeys = ['rsi_len', 'pivot_window', 'vol_ma_len', 'ob_threshold', 'os_threshold']
-      const metadataKeys = ['indicatorId', 'userid', 'symbol', 'market', 'timeframe', 'enableMtf']
-      const excludeKeys = [...strategyParamKeys, ...metadataKeys]
+      // Define known Backtest System Parameters (to be excluded from Strategy Code)
+      // These control the engine/risk/money management, not the indicator logic itself
+      const backtestSystemKeys = [
+        // Metadata
+        'indicatorId', 'userid', 'symbol', 'market', 'timeframe', 'enableMtf',
+        // General
+        'startDate', 'endDate', 'initialCapital', 'commission', 'slippage', 'leverage', 'tradeDirection',
+        // Risk
+        'stopLossPct', 'takeProfitPct', 'trailingEnabled', 'trailingStopPct', 'trailingActivationPct',
+        // Scaling (Add)
+        'trendAddEnabled', 'dcaAddEnabled', 'trendAddStepPct', 'dcaAddStepPct',
+        'trendAddSizePct', 'dcaAddSizePct', 'trendAddMaxTimes', 'dcaAddMaxTimes',
+        // Scaling (Reduce)
+        'trendReduceEnabled', 'adverseReduceEnabled', 'trendReduceStepPct', 'adverseReduceStepPct',
+        'trendReduceSizePct', 'adverseReduceSizePct', 'trendReduceMaxTimes', 'adverseReduceMaxTimes',
+        // Position
+        'entryPct'
+      ]
 
       const exportData = {}
+      const strategyParams = {}
+
+      // Split parameters into System Config and Strategy Code Params
       Object.keys(p).forEach(key => {
-        if (!excludeKeys.includes(key)) {
+        if (backtestSystemKeys.includes(key)) {
           exportData[key] = p[key]
+        } else {
+          // Anything NOT a system key is treated as a Strategy Parameter (e.g. rsi_len, extreme_ob, new_param)
+          strategyParams[key] = p[key]
         }
       })
 
-      // 2. Convert decimal percentages to integer percentages (AI返回的可能是0-1范围的小数)
-      // 需要转换的百分比参数列表
+      // --- Processing Export Data (System Config) ---
+
+      // Convert decimal percentages to integer percentages for UI
       const percentageKeys = [
         'stopLossPct', 'takeProfitPct',
         'dcaAddSizePct', 'dcaAddStepPct',
@@ -1905,14 +1968,28 @@ export default {
       percentageKeys.forEach(key => {
         if (exportData[key] !== undefined && exportData[key] !== null) {
           const val = parseFloat(exportData[key])
-          // 如果值在0-1之间（小数格式），转换为百分比
+          // Heuristic: if value is small fraction (0-1), convert to percent (0-100)
           if (val > 0 && val < 1) {
             exportData[key] = val * 100
           }
         }
       })
 
-      // Convert dates to strings if needed
+      // Special handling for commission/slippage:
+      // They should be exported as raw decimals (0.0002).
+      // If AI/UI provided percentage-like values (e.g. 0.02), we divide by 100.
+      const rateKeys = ['commission', 'slippage']
+      rateKeys.forEach(k => {
+        if (exportData[k] !== undefined && exportData[k] !== null) {
+          const val = parseFloat(exportData[k])
+          // If > 0.005, assume it is percentage format (e.g. 0.02 for 0.02%)
+          if (val > 0.005) {
+            exportData[k] = parseFloat((val / 100).toFixed(6))
+          }
+        }
+      })
+
+      // Convert dates
       if (exportData.startDate && typeof exportData.startDate === 'object') {
         exportData.startDate = moment(exportData.startDate).format('YYYY-MM-DD')
       }
@@ -1920,7 +1997,7 @@ export default {
         exportData.endDate = moment(exportData.endDate).format('YYYY-MM-DD')
       }
 
-      // Add _uiState to match standard config format
+      // Add UI state
       exportData._uiState = {
         trailingEnabledUi: !!exportData.trailingEnabled,
         step1CollapseKeys: this.step1CollapseKeys || ['risk'],
@@ -1930,64 +2007,63 @@ export default {
         precisionInfo: this.precisionInfo || null
       }
 
-      // Export config file
+      // 1. Export Config File
       try {
         this.doExportConfig(exportData)
-        this.$message.success('最佳配置已导出')
+        this.$message.success('系统配置已导出')
       } catch (e) {
         console.error(e)
         this.$message.error('导出配置失败')
-        return
+        // Continue to code update even if file export fails? Maybe better not return here.
       }
 
-      // 2. Ask to update source code (only for strategy params)
-      if (this.indicator && this.indicator.id) {
-        const strategyParams = {}
-        strategyParamKeys.forEach(key => {
-          if (p[key] !== undefined) {
-            strategyParams[key] = p[key]
+      // 2. Ask to update source code (Strategy Params)
+      if (this.indicator && this.indicator.id && Object.keys(strategyParams).length > 0) {
+        this.$confirm({
+          title: this.$t('dashboard.indicator.backtest.saveParamsTitle') || 'Update Strategy Code?',
+          content: (h) => {
+            return h('div', [
+              h('p', this.$t('dashboard.indicator.backtest.saveParamsDesc') || 'Do you want to update the source code with these optimized parameters?'),
+              h('ul', { style: 'font-size: 12px; color: #666; max-height: 100px; overflow-y: auto;' },
+                Object.keys(strategyParams).map(k => h('li', `${k}: ${strategyParams[k]}`))
+              )
+            ])
+          },
+          okText: this.$t('common.confirm'),
+          cancelText: this.$t('common.cancel'),
+          onOk: async () => {
+            const loadingMsg = this.$message.loading('正在更新源代码...', 0)
+            try {
+              const res = await request({
+                url: '/api/indicator/update-strategy-params',
+                method: 'post',
+                data: {
+                  userid: this.userId || 1,
+                  indicatorId: this.indicator.id,
+                  params: strategyParams
+                }
+              })
+              loadingMsg()
+
+              if (res.code === 1) {
+                this.$message.success('源代码已更新')
+                if (res.data && res.data.code) {
+                  // Update local code
+                  this.$emit('update:code', res.data.code)
+                  if (this.indicator) this.indicator.code = res.data.code
+                }
+              } else {
+                this.$message.error(res.msg || '更新失败')
+              }
+            } catch (e) {
+              loadingMsg()
+              console.error(e)
+              this.$message.error('更新失败: ' + (e.message || e))
+            }
           }
         })
-
-        // Only show dialog if there are strategy params to save
-        if (Object.keys(strategyParams).length > 0) {
-          this.$confirm({
-            title: this.$t('dashboard.indicator.backtest.saveParamsTitle'),
-            content: this.$t('dashboard.indicator.backtest.saveParamsDesc'),
-            okText: this.$t('common.confirm'),
-            cancelText: this.$t('common.cancel'),
-            onOk: async () => {
-              const loadingMsg = this.$message.loading('正在更新源代码...', 0)
-              try {
-                const res = await request({
-                  url: '/api/indicator/update-strategy-params',
-                  method: 'post',
-                  data: {
-                    userid: this.userId || 1,
-                    indicatorId: this.indicator.id,
-                    params: strategyParams
-                  }
-                })
-                loadingMsg()
-
-                if (res.code === 1) {
-                  this.$message.success('源代码已更新')
-                  if (res.data && res.data.code) {
-                    // Update local code
-                    this.$emit('update:code', res.data.code)
-                    if (this.indicator) this.indicator.code = res.data.code
-                  }
-                } else {
-                  this.$message.error(res.msg || '更新失败')
-                }
-              } catch (e) {
-                loadingMsg()
-                console.error(e)
-                this.$message.error('更新失败: ' + (e.message || e))
-              }
-            }
-          })
-        }
+      } else if (Object.keys(strategyParams).length === 0) {
+        this.$message.info('没有检测到需要更新的策略参数')
       }
     }
   },
@@ -2260,6 +2336,96 @@ export default {
 
     50% {
       opacity: 1;
+    }
+  }
+}
+
+/* Imported Config Styles */
+.imported-config-container {
+  background: #f0f7ff;
+  border: 1px solid #bae7ff;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+
+.config-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  padding-bottom: 8px;
+
+  .title {
+    font-weight: 600;
+    font-size: 15px;
+    color: #1f1f1f;
+    margin-right: 8px;
+  }
+
+  .subtitle {
+    font-size: 12px;
+    color: #8c8c8c;
+    margin-top: 2px;
+  }
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.config-card {
+  background: #fff;
+  border-radius: 6px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border: 1px solid #e8e8e8;
+  transition: all 0.3s;
+
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border-color: #d9d9d9;
+    transform: translateY(-2px);
+  }
+
+  .card-label {
+    font-size: 12px;
+    color: #8c8c8c;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #262626;
+    font-family: 'Roboto Mono', 'Consolas', monospace;
+
+    &.money {
+      color: #faad14;
+    }
+
+    &.red {
+      color: #f5222d;
+    }
+
+    &.green {
+      color: #52c41a;
+    }
+
+    &.blue {
+      color: #1890ff;
+    }
+
+    &.orange {
+      color: #fa8c16;
     }
   }
 }
